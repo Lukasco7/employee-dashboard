@@ -1,20 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
-const SAMPLE_PRODUCTS = [
-  { id: 1, name: 'Laptop', category: 'Electronics', price: '$899', stock: 15 },
-  { id: 2, name: 'Mouse', category: 'Electronics', price: '$25', stock: 120 },
-  { id: 3, name: 'Keyboard', category: 'Electronics', price: '$75', stock: 45 },
-  { id: 4, name: 'Monitor', category: 'Electronics', price: '$299', stock: 8 },
-  { id: 5, name: 'Desk Chair', category: 'Furniture', price: '$199', stock: 22 },
-  { id: 6, name: 'Desk Lamp', category: 'Furniture', price: '$45', stock: 60 },
-];
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: string;
+  stock: number;
+}
 
 export default function Products({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredProducts = SAMPLE_PRODUCTS.filter(
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter(
     (product) =>
       product.name.toLowerCase().includes(search.toLowerCase()) ||
       product.category.toLowerCase().includes(search.toLowerCase())
@@ -48,33 +70,41 @@ export default function Products({ onBack }: { onBack: () => void }) {
           />
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => (
-            <div
-              key={product.id}
-              className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
-            >
-              <h3 className="text-lg font-semibold text-gray-800">
-                {product.name}
-              </h3>
-              <p className="text-gray-600 text-sm mt-1">{product.category}</p>
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-xl font-bold text-blue-600">
-                  {product.price}
-                </span>
-                <span className="text-sm text-gray-600">
-                  Stock: {product.stock}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredProducts.length === 0 && (
+        {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">No products found</p>
+            <p className="text-gray-600">Loading products...</p>
           </div>
+        ) : (
+          <>
+            {/* Products Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
+                >
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {product.name}
+                  </h3>
+                  <p className="text-gray-600 text-sm mt-1">{product.category}</p>
+                  <div className="mt-4 flex justify-between items-center">
+                    <span className="text-xl font-bold text-blue-600">
+                      {product.price}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      Stock: {product.stock}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-600">No products found</p>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
