@@ -1,6 +1,14 @@
 'use client';
 
-export default function Dashboard({ user, onLogout }: { user: string; onLogout: () => void }) {
+interface DashboardProps {
+  user: string;
+  onLogout: () => void;
+  onViewProducts: () => void;
+  onViewEmployees: () => void;
+  onViewAnalytics: () => void;
+}
+
+export default function Dashboard({ user, onLogout, onViewProducts, onViewEmployees, onViewAnalytics }: DashboardProps) {
   const productCount = 45;
   const employeeCount = 12;
   const revenue = '$15,230';
@@ -70,9 +78,24 @@ export default function Dashboard({ user, onLogout }: { user: string; onLogout: 
             Quick Links
           </h3>
           <div className="space-y-2">
-            <p className="text-gray-600">📦 View Products</p>
-            <p className="text-gray-600">👥 Manage Employees</p>
-            <p className="text-gray-600">📊 View Analytics</p>
+            <button
+              onClick={onViewProducts}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded transition text-gray-600"
+            >
+              📦 View Products
+            </button>
+            <button
+              onClick={onViewEmployees}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded transition text-gray-600"
+            >
+              👥 Manage Employees
+            </button>
+            <button
+              onClick={onViewAnalytics}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded transition text-gray-600"
+            >
+              📊 View Analytics
+            </button>
           </div>
         </div>
       </main>
