@@ -1,22 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
-const SAMPLE_EMPLOYEES = [
-  { id: 1, name: 'John Smith', role: 'Manager', email: 'john@company.com', status: 'Active' },
-  { id: 2, name: 'Sarah Johnson', role: 'Developer', email: 'sarah@company.com', status: 'Active' },
-  { id: 3, name: 'Mike Davis', role: 'Designer', email: 'mike@company.com', status: 'Active' },
-  { id: 4, name: 'Emma Wilson', role: 'Developer', email: 'emma@company.com', status: 'Active' },
-  { id: 5, name: 'David Brown', role: 'Sales', email: 'david@company.com', status: 'Active' },
-  { id: 6, name: 'Lisa Garcia', role: 'HR', email: 'lisa@company.com', status: 'Active' },
-  { id: 7, name: 'James Martinez', role: 'DevOps', email: 'james@company.com', status: 'Active' },
-  { id: 8, name: 'Anna Lee', role: 'QA', email: 'anna@company.com', status: 'Active' },
-];
+interface Employee {
+  id: number;
+  name: string;
+  role: string;
+  email: string;
+  status: string;
+}
 
 export default function Employees({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEmployees = SAMPLE_EMPLOYEES.filter(
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEmployees = employees.filter(
     (employee) =>
       employee.name.toLowerCase().includes(search.toLowerCase()) ||
       employee.role.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,38 +71,46 @@ export default function Employees({ onBack }: { onBack: () => void }) {
           />
         </div>
 
-        {/* Employees Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Role</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredEmployees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-800">{employee.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{employee.role}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{employee.email}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
-                      {employee.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredEmployees.length === 0 && (
+        {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">No employees found</p>
+            <p className="text-gray-600">Loading employees...</p>
           </div>
+        ) : (
+          <>
+            {/* Employees Table */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Name</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Role</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Email</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredEmployees.map((employee) => (
+                    <tr key={employee.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-800">{employee.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{employee.role}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{employee.email}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                          {employee.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredEmployees.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-600">No employees found</p>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
