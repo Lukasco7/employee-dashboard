@@ -1,0 +1,1222 @@
+'use client';
+
+import { useEffect, useState, type FormEvent } from 'react';
+import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
+
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+}
+
+interface Sale {
+  id: number;
+  product_id: number;
+  amount: number;
+  quantity: number;
+  sale_date: string;
+  product?: Product | null;
+}
+
+export default function Sales({
+  onBack,
+  userRole,
+  userEmail,
+}: {
+  onBack: () => void;
+  userRole?: string;
+  userEmail?: string;
+}) {
+  const normalizedRole =
+    (userRole || '').trim().toLowerCase();
+
+  const canDeleteSales =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'manager' ||
+    normalizedRole === 'administrator';
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+
+  const [productId, setProductId] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [search, setSearch] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // =========================
+  // CHANGE CALCULATOR
+  // =========================
+
+  const [amountDue, setAmountDue] = useState('');
+  const [amountReceived, setAmountReceived] = useState('');
+
+  // =========================
+  // LOAD PRODUCTS
+  // =========================
+
+  const fetchProducts = async (): Promise<Product[]> => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, category, price, stock')
+      .order('name', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    const formattedProducts: Product[] = (data || []).map(
+      (product) => ({
+        id: Number(product.id),
+        name: product.name || 'Unnamed Product',
+        category: product.category || 'No category',
+        price: Number(product.price) || 0,
+        stock: Number(product.stock) || 0,
+      })
+    );
+
+    setProducts(formattedProducts);
+
+    return formattedProducts;
+  };
+
+  // =========================
+  // LOAD SALES
+  // =========================
+
+  const fetchSales = async (
+    currentProducts?: Product[]
+  ) => {
+    const { data, error } = await supabase
+      .from('sales')
+      .select(
+        'id, product_id, amount, quantity, sale_date'
+      )
+      .order('sale_date', {
+        ascending: false,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    const productsToUse =
+      currentProducts ?? products;
+
+    const formattedSales: Sale[] =
+      (data || []).map((sale) => ({
+        id: Number(sale.id),
+        product_id: Number(sale.product_id),
+        amount: Number(sale.amount) || 0,
+        quantity: Number(sale.quantity) || 0,
+        sale_date: sale.sale_date,
+
+        product:
+          productsToUse.find(
+            (product) =>
+              Number(product.id) ===
+              Number(sale.product_id)
+          ) || null,
+      }));
+
+    setSales(formattedSales);
+  };
+
+  // =========================
+  // LOAD EVERYTHING
+  // =========================
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const loadedProducts =
+        await fetchProducts();
+
+      await fetchSales(loadedProducts);
+    } catch (err) {
+      console.error(
+        'Error loading sales data:',
+        err
+      );
+
+      if (err instanceof Error) {
+        setError(
+          `Unable to load sales: ${err.message}`
+        );
+      } else {
+        setError(
+          'Unable to load sales data.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================
+  // INITIAL LOAD
+  // =========================
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // =========================
+  // SELECTED PRODUCT
+  // =========================
+
+  const selectedProduct =
+    products.find(
+      (product) =>
+        product.id === Number(productId)
+    ) || null;
+
+  // =========================
+  // CALCULATE AMOUNT
+  // =========================
+
+  const saleQuantity =
+    Number(quantity) || 0;
+
+  const calculatedAmount =
+    selectedProduct
+      ? Number(selectedProduct.price) *
+        saleQuantity
+      : 0;
+
+  // =========================
+  // RECORD SALE
+  // =========================
+
+  const handleRecordSale = async (
+  e: FormEvent
+) => {
+  e.preventDefault();
+
+  setError('');
+  setSuccess('');
+
+  if (!productId) {
+    setError('Please select a product.');
+    return;
+  }
+
+  if (
+    !quantity ||
+    Number(quantity) <= 0 ||
+    !Number.isInteger(Number(quantity))
+  ) {
+    setError(
+      'Please enter a valid whole-number quantity.'
+    );
+    return;
+  }
+
+  if (!selectedProduct) {
+    setError('Selected product not found.');
+    return;
+  }
+
+  const newQuantity = Number(quantity);
+
+  if (newQuantity > selectedProduct.stock) {
+    setError(
+      `Only ${selectedProduct.stock} unit${
+        selectedProduct.stock === 1 ? '' : 's'
+      } of ${selectedProduct.name} available in stock.`
+    );
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const amount =
+      Number(selectedProduct.price) * newQuantity;
+
+    console.log('==============================');
+    console.log('RECORDING SALE');
+    console.log('Product ID:', selectedProduct.id);
+    console.log('Product:', selectedProduct.name);
+    console.log('Price:', selectedProduct.price);
+    console.log('Quantity:', newQuantity);
+    console.log('Amount:', amount);
+    console.log('Current Stock:', selectedProduct.stock);
+    console.log('==============================');
+
+    // =========================
+    // RECORD SALE + UPDATE STOCK
+    // =========================
+    //
+    // Stock changes are performed by the database RPC.
+    // Employees do not need direct UPDATE permission on
+    // the products table to record a sale.
+    //
+    let saleResult: unknown = null;
+
+    // Employees use the existing secure RPC signature:
+    // (p_amount, p_employee_id, p_product_id, p_quantity).
+    // Admin/Manager accounts can use their existing direct permissions.
+    if (
+      normalizedRole === 'employee' ||
+      normalizedRole === 'staff' ||
+      normalizedRole === 'cashier'
+    ) {
+      // Get the real authenticated email from Supabase first.
+      // The parent prop is only a fallback, because localStorage/UI
+      // state can be empty after navigation or refresh.
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw new Error(
+          authError.message ||
+            'Unable to determine the authenticated account.'
+        );
+      }
+
+      const cleanEmail = (
+        user?.email ||
+        userEmail ||
+        ''
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!cleanEmail) {
+        throw new Error(
+          'Your authenticated account has no email address.'
+        );
+      }
+
+      const {
+        data: employee,
+        error: employeeError,
+      } = await supabase
+        .from('employees')
+        .select('id, email, status')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (employeeError) {
+        throw employeeError;
+      }
+
+      if (!employee) {
+        throw new Error(
+          'Your account is not linked to an employee record.'
+        );
+      }
+
+      if (
+        String(employee.status || '')
+          .trim()
+          .toLowerCase() !== 'active'
+      ) {
+        throw new Error(
+          'Your employee account is not active.'
+        );
+      }
+
+      const {
+        data,
+        error: saleError,
+      } = await supabase.rpc(
+        'record_sale_and_update_stock',
+        {
+          p_amount: amount,
+          p_employee_id:
+            Number(employee.id),
+          p_product_id:
+            Number(selectedProduct.id),
+          p_quantity:
+            Number(newQuantity),
+        }
+      );
+
+      if (saleError) {
+        console.error(
+          'SUPABASE RECORD SALE RPC ERROR:',
+          JSON.stringify(
+            saleError,
+            Object.getOwnPropertyNames(
+              saleError
+            ),
+            2
+          )
+        );
+
+        throw new Error(
+          saleError.message ||
+            saleError.details ||
+            saleError.hint ||
+            'Unable to record the sale.'
+        );
+      }
+
+      saleResult = data;
+    } else {
+      // Admin/Manager: retain their existing direct database permissions.
+      const {
+        data: insertedSale,
+        error: saleError,
+      } = await supabase
+        .from('sales')
+        .insert({
+          product_id:
+            selectedProduct.id,
+          amount,
+          quantity:
+            newQuantity,
+          sale_date:
+            new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (saleError) {
+        console.error(
+          'SUPABASE SALE ERROR:',
+          JSON.stringify(
+            saleError,
+            Object.getOwnPropertyNames(
+              saleError
+            ),
+            2
+          )
+        );
+
+        throw new Error(
+          saleError.message ||
+            saleError.details ||
+            saleError.hint ||
+            'Unable to record the sale.'
+        );
+      }
+
+      const {
+        data: updatedProduct,
+        error: stockError,
+      } = await supabase
+        .from('products')
+        .update({
+          stock:
+            selectedProduct.stock -
+            newQuantity,
+        })
+        .eq(
+          'id',
+          selectedProduct.id
+        )
+        .select()
+        .single();
+
+      if (stockError) {
+        console.error(
+          'SUPABASE STOCK ERROR:',
+          JSON.stringify(
+            stockError,
+            Object.getOwnPropertyNames(
+              stockError
+            ),
+            2
+          )
+        );
+
+        // Do not claim the stock update succeeded.
+        throw new Error(
+          stockError.message ||
+            stockError.details ||
+            stockError.hint ||
+            'Sale was recorded, but stock could not be updated.'
+        );
+      }
+
+      saleResult = {
+        sale: insertedSale,
+        product:
+          updatedProduct,
+      };
+    }
+
+    console.log(
+      'Sale recorded successfully:',
+      saleResult
+    );
+
+    // =========================
+    // RESET FORM
+    // =========================
+
+    setProductId('');
+    setQuantity('');
+
+    setSuccess(
+      `Sale recorded successfully. ${newQuantity} unit${
+        newQuantity === 1 ? '' : 's'
+      } of ${selectedProduct.name} sold.`
+    );
+
+    // =========================
+    // REFRESH DATA
+    // =========================
+
+    await loadData();
+
+  } catch (err) {
+    console.error(
+      'ERROR RECORDING SALE:',
+      err
+    );
+
+    if (err instanceof Error) {
+      setError(
+        `Unable to record sale: ${err.message}`
+      );
+    } else {
+      setError(
+        'Unable to record sale. Check the browser console for details.'
+      );
+    }
+  } finally {
+    setSaving(false);
+  }
+};
+
+  // =========================
+  // DELETE SALE
+  // =========================
+
+  const handleDeleteSale = async (
+    sale: Sale
+  ) => {
+    if (!canDeleteSales) {
+      setError(
+        'Employees cannot delete sales. Only Admin or Manager accounts can delete sales.'
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Delete this sale of ${
+          sale.product?.name ??
+          'Unknown Product'
+        }?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+
+    try {
+      setSaving(true);
+
+      // =========================
+      // RESTORE STOCK
+      // =========================
+
+      const product =
+        products.find(
+          (item) =>
+            Number(item.id) ===
+            Number(sale.product_id)
+        );
+
+      if (product) {
+        const restoredStock =
+          Number(product.stock) +
+          Number(sale.quantity);
+
+        const { error: stockError } =
+          await supabase
+            .from('products')
+            .update({
+              stock: restoredStock,
+            })
+            .eq(
+              'id',
+              product.id
+            );
+
+        if (stockError) {
+          throw stockError;
+        }
+      }
+
+      // =========================
+      // DELETE SALE
+      // =========================
+
+      const { error: deleteError } =
+        await supabase
+          .from('sales')
+          .delete()
+          .eq(
+            'id',
+            sale.id
+          );
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      setSuccess(
+        'Sale deleted successfully and stock restored.'
+      );
+
+      await loadData();
+    } catch (err) {
+      console.error(
+        'Error deleting sale:',
+        err
+      );
+
+      if (err instanceof Error) {
+        setError(
+          `Unable to delete sale: ${err.message}`
+        );
+      } else {
+        setError(
+          'Unable to delete sale.'
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // =========================
+  // SEARCH
+  // =========================
+
+  const filteredSales =
+    sales.filter((sale) => {
+      const searchTerm =
+        search.toLowerCase().trim();
+
+      const productName =
+        sale.product?.name
+          ?.toLowerCase() || '';
+
+      const category =
+        sale.product?.category
+          ?.toLowerCase() || '';
+
+      return (
+        productName.includes(
+          searchTerm
+        ) ||
+        category.includes(
+          searchTerm
+        ) ||
+        String(
+          sale.amount
+        ).includes(searchTerm)
+      );
+    });
+
+  // =========================
+  // TOTALS
+  // =========================
+
+  const totalRevenue =
+    sales.reduce(
+      (total, sale) =>
+        total +
+        Number(sale.amount || 0),
+      0
+    );
+
+  const totalUnits =
+    sales.reduce(
+      (total, sale) =>
+        total +
+        Number(sale.quantity || 0),
+      0
+    );
+
+  // =========================
+  // CHANGE CALCULATOR
+  // =========================
+
+  const parsedAmountDue = Number(amountDue);
+  const parsedAmountReceived = Number(amountReceived);
+
+  const validAmountDue =
+    amountDue.trim() !== '' &&
+    Number.isFinite(parsedAmountDue) &&
+    parsedAmountDue >= 0;
+
+  const validAmountReceived =
+    amountReceived.trim() !== '' &&
+    Number.isFinite(parsedAmountReceived) &&
+    parsedAmountReceived >= 0;
+
+  const changeDue =
+    validAmountDue && validAmountReceived
+      ? parsedAmountReceived - parsedAmountDue
+      : 0;
+
+  const customerHasPaidEnough =
+    validAmountDue &&
+    validAmountReceived &&
+    changeDue >= 0;
+
+  const calculatorCurrency = 'GH₵';
+
+  const formatMoney = (value: number) =>
+    `${calculatorCurrency} ${value.toFixed(2)}`;
+
+  const clearCalculator = () => {
+    setAmountDue('');
+    setAmountReceived('');
+  };
+
+  const getChangeBreakdown = (value: number) => {
+    let remaining = Math.round(value * 100);
+
+    const denominations = [
+      20000, 10000, 5000, 2000, 1000, 500, 200,
+      100, 50, 20, 10, 5, 2, 1,
+    ];
+
+    const result: { amount: number; count: number }[] = [];
+
+    for (const denomination of denominations) {
+      if (remaining >= denomination) {
+        const count = Math.floor(remaining / denomination);
+        remaining -= count * denomination;
+
+        result.push({
+          amount: denomination / 100,
+          count,
+        });
+      }
+    }
+
+    return result;
+  };
+
+  // =========================
+  // PAGE
+  // =========================
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+
+      {/* HEADER */}
+
+      <header className="bg-white shadow">
+
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+
+          <h1 className="text-2xl font-bold text-gray-800">
+            Sales Management
+          </h1>
+
+          <button
+            type="button"
+            onClick={onBack}
+            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer font-medium"
+          >
+            ← Back to Dashboard
+          </button>
+
+        </div>
+
+      </header>
+
+      {/* MAIN */}
+
+      <main className="max-w-7xl mx-auto px-6 py-8">
+
+        {/* SUCCESS */}
+
+        {success && (
+          <div className="bg-green-100 border border-green-200 text-green-700 rounded-lg p-4 mb-6">
+            {success}
+          </div>
+        )}
+
+        {/* ERROR */}
+
+        {error && (
+          <div className="bg-red-100 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* SUMMARY */}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+          <div className="bg-white rounded-lg shadow p-6">
+
+            <p className="text-gray-500 text-sm font-semibold">
+              TOTAL REVENUE
+            </p>
+
+            <p className="text-3xl font-bold text-purple-600 mt-2">
+              {formatCurrency(totalRevenue)}
+            </p>
+
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+
+            <p className="text-gray-500 text-sm font-semibold">
+              UNITS SOLD
+            </p>
+
+            <p className="text-3xl font-bold text-blue-600 mt-2">
+              {totalUnits}
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* RECORD SALE */}
+
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+            Record New Sale
+          </h2>
+
+          <form
+            onSubmit={
+              handleRecordSale
+            }
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
+          >
+
+            {/* PRODUCT */}
+
+            <div>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product
+              </label>
+
+              <select
+                value={productId}
+                onChange={(e) =>
+                  setProductId(
+                    e.target.value
+                  )
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+
+                <option value="">
+                  Select product
+                </option>
+
+                {products.map(
+                  (product) => (
+                    <option
+                      key={product.id}
+                      value={product.id}
+                    >
+                      {product.name} — {formatCurrency(
+                        product.price || 0
+                      )}
+                      {' '}— Stock:{' '}
+                      {Number(
+                        product.stock || 0
+                      )}
+                    </option>
+                  )
+                )}
+
+              </select>
+
+            </div>
+
+            {/* QUANTITY */}
+
+            <div>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Quantity
+              </label>
+
+              <input
+                type="number"
+                min="1"
+                max={
+                  selectedProduct?.stock ||
+                  undefined
+                }
+                step="1"
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(
+                    e.target.value
+                  )
+                }
+                placeholder="Enter quantity"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+
+            </div>
+
+            {/* AMOUNT */}
+
+            <div>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sale Amount
+              </label>
+
+              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 font-semibold">
+                {formatCurrency(
+                  calculatedAmount
+                )}
+              </div>
+
+            </div>
+
+            {/* SAVE */}
+
+            <div className="md:col-span-3">
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving
+                  ? 'Recording...'
+                  : 'Record Sale'}
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+        {/* ========================= */}
+        {/* CHANGE CALCULATOR */}
+        {/* ========================= */}
+
+        <section className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">
+                Change Calculator
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Quickly calculate the change to give a customer.
+                This does not modify sales or inventory.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={clearCalculator}
+              className="self-start sm:self-auto bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Amount Due
+              </label>
+
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={amountDue}
+                onChange={(e) =>
+                  setAmountDue(e.target.value)
+                }
+                placeholder="0.00"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAmountDue(
+                      calculatedAmount.toFixed(2)
+                    )
+                  }
+                  disabled={!selectedProduct || saleQuantity <= 0}
+                  className="shrink-0 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Use the current sale amount"
+                >
+                  Use Sale
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Amount Received
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={amountReceived}
+                onChange={(e) =>
+                  setAmountReceived(e.target.value)
+                }
+                placeholder="0.00"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <div
+                className={`rounded-xl border p-5 ${
+                  customerHasPaidEnough
+                    ? 'bg-green-50 border-green-200'
+                    : validAmountDue && validAmountReceived
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-blue-50 border-blue-200'
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-600">
+                  CHANGE DUE
+                </p>
+
+                <p
+                  className={`text-4xl font-extrabold mt-2 ${
+                    customerHasPaidEnough
+                      ? 'text-green-700'
+                      : validAmountDue && validAmountReceived
+                      ? 'text-red-700'
+                      : 'text-blue-700'
+                  }`}
+                >
+                  {formatMoney(Math.max(changeDue, 0))}
+                </p>
+
+                {validAmountDue &&
+                  validAmountReceived &&
+                  !customerHasPaidEnough && (
+                    <p className="text-sm font-semibold text-red-700 mt-2">
+                      Customer still owes{' '}
+                      {formatMoney(Math.abs(changeDue))}.
+                    </p>
+                  )}
+              </div>
+            </div>
+
+            {customerHasPaidEnough && changeDue > 0 && (
+              <div className="md:col-span-2">
+                <div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
+                  <p className="text-sm font-bold text-gray-700 mb-3">
+                    Suggested Change Breakdown
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {getChangeBreakdown(changeDue).map(
+                      (item) => (
+                        <span
+                          key={`${item.amount}-${item.count}`}
+                          className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800"
+                        >
+                          {item.count} × {calculatorCurrency}{' '}
+                          {item.amount.toFixed(2)}
+                        </span>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {customerHasPaidEnough && changeDue === 0 && (
+              <div className="md:col-span-2">
+                <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                  <p className="text-sm font-semibold text-green-800">
+                    Exact payment — no change required.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* SEARCH */}
+
+        <div className="mb-6">
+
+          <input
+            type="text"
+            placeholder="Search sales by product, category or amount..."
+            value={search}
+            onChange={(e) =>
+              setSearch(
+                e.target.value
+              )
+            }
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+        </div>
+
+        {/* SALES HISTORY */}
+
+        {loading ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+
+            <p className="text-gray-600">
+              Loading sales...
+            </p>
+
+          </div>
+        ) : filteredSales.length ===
+          0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+
+            <p className="text-gray-600">
+              No sales found.
+            </p>
+
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+
+            <div className="overflow-x-auto">
+
+              <table className="w-full">
+
+                <thead className="bg-gray-50">
+
+                  <tr>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Product
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Category
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Quantity
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Amount
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Date
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                      Action
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody className="divide-y divide-gray-200">
+
+                  {filteredSales.map(
+                    (sale) => (
+                      <tr
+                        key={sale.id}
+                        className="hover:bg-gray-50"
+                      >
+
+                        <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                          {sale.product?.name ??
+                            'Unknown Product'}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {sale.product?.category ??
+                            'No category'}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {sale.quantity}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm font-semibold text-purple-600">
+                          {formatCurrency(
+                            sale.amount
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {new Date(
+                            sale.sale_date
+                          ).toLocaleDateString()}
+                        </td>
+
+                        <td className="px-6 py-4">
+
+                          {canDeleteSales ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteSale(
+                                  sale
+                                )
+                              }
+                              disabled={saving}
+                              className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition cursor-pointer font-semibold disabled:opacity-50"
+                            >
+                              🗑️ Delete
+                            </button>
+                          ) : (
+                            <span className="text-xs font-medium text-gray-400">
+                              View only
+                            </span>
+                          )}
+
+                        </td>
+
+                      </tr>
+                    )
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </div>
+        )}
+
+      </main>
+
+    </div>
+  );
+}
