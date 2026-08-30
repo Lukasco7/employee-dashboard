@@ -1,7 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type { FormEvent } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface Customer {
   id: number;
@@ -276,8 +286,8 @@ export default function Customers({
   };
 
   const handleCreateCustomer = async (
-    event: React.FormEvent
-  ) => {
+  event: FormEvent<HTMLFormElement>
+) => {
     event.preventDefault();
 
     setError('');
