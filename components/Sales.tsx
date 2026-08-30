@@ -742,7 +742,7 @@ export default function Sales({
 
       {/* MAIN */}
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
         {/* SUCCESS */}
 
@@ -762,27 +762,27 @@ export default function Sales({
 
         {/* SUMMARY */}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-5">
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm p-4">
 
             <p className="text-gray-500 text-sm font-semibold">
               TOTAL REVENUE
             </p>
 
-            <p className="text-3xl font-bold text-purple-600 mt-2">
+            <p className="text-2xl font-bold text-purple-600 mt-1">
               {formatCurrency(totalRevenue)}
             </p>
 
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm p-4">
 
             <p className="text-gray-500 text-sm font-semibold">
               UNITS SOLD
             </p>
 
-            <p className="text-3xl font-bold text-blue-600 mt-2">
+            <p className="text-2xl font-bold text-blue-600 mt-1">
               {totalUnits}
             </p>
 
@@ -790,11 +790,12 @@ export default function Sales({
 
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         {/* RECORD SALE */}
 
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-sm p-5">
 
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">
             Record New Sale
           </h2>
 
@@ -802,7 +803,7 @@ export default function Sales({
             onSubmit={
               handleRecordSale
             }
-            className="grid grid-cols-1 md:grid-cols-3 gap-5"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
           >
 
             {/* PRODUCT */}
@@ -896,7 +897,7 @@ export default function Sales({
 
             {/* SAVE */}
 
-            <div className="md:col-span-3">
+            <div className="sm:col-span-2">
 
               <button
                 type="submit"
@@ -914,14 +915,15 @@ export default function Sales({
 
         </div>
 
+
         {/* ========================= */}
         {/* CHANGE CALCULATOR */}
         {/* ========================= */}
 
-        <section className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <section className="bg-white rounded-lg shadow-sm p-5 lg:sticky lg:top-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">
+              <h2 className="text-lg font-semibold text-gray-800">
                 Change Calculator
               </h2>
 
@@ -940,7 +942,7 @@ export default function Sales({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount Due
@@ -1067,6 +1069,8 @@ export default function Sales({
             )}
           </div>
         </section>
+
+        </div>
 
         {/* SEARCH */}
 

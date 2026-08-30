@@ -99,6 +99,36 @@ export default function Employees({
   const [selectedEmployeeId, setSelectedEmployeeId] =
     useState<number | null>(null);
 
+  // EDIT EMPLOYEE
+  const [editingEmployee, setEditingEmployee] =
+    useState<Employee | null>(null);
+  const [editEmployeeCode, setEditEmployeeCode] =
+    useState('');
+  const [editFirstName, setEditFirstName] =
+    useState('');
+  const [editLastName, setEditLastName] =
+    useState('');
+  const [editEmail, setEditEmail] =
+    useState('');
+  const [editPhone, setEditPhone] =
+    useState('');
+  const [editDepartment, setEditDepartment] =
+    useState('');
+  const [editPosition, setEditPosition] =
+    useState('');
+  const [editHireDate, setEditHireDate] =
+    useState('');
+  const [editRoleId, setEditRoleId] =
+    useState('');
+  const [editManagerId, setEditManagerId] =
+    useState('');
+  const [editProfilePhotoUrl, setEditProfilePhotoUrl] =
+    useState('');
+  const [editStatus, setEditStatus] =
+    useState('Active');
+  const [savingEmployee, setSavingEmployee] =
+    useState(false);
+
   const [linkingEmployee, setLinkingEmployee] =
     useState<Employee | null>(null);
   const [loginEmail, setLoginEmail] =
@@ -428,11 +458,209 @@ export default function Employees({
     }
 
     setSelectedEmployeeId(employee.id);
+    setEditingEmployee(employee);
     setLinkingEmployee(null);
-    setError('');
-    setSuccess(
-      'Employee selected. Use the employee editor to update this record.'
+
+    setEditEmployeeCode(
+      employee.employee_code || ''
     );
+    setEditFirstName(
+      employee.first_name ||
+        employee.name.split(' ')[0] ||
+        ''
+    );
+    setEditLastName(
+      employee.last_name ||
+        employee.name.split(' ').slice(1).join(' ') ||
+        ''
+    );
+    setEditEmail(
+      employee.email || ''
+    );
+    setEditPhone(
+      employee.phone || ''
+    );
+    setEditDepartment(
+      employee.department || ''
+    );
+    setEditPosition(
+      employee.position || ''
+    );
+    setEditHireDate(
+      employee.hire_date || ''
+    );
+    setEditRoleId(
+      employee.role_id
+        ? String(employee.role_id)
+        : ''
+    );
+    setEditManagerId(
+      employee.manager_id
+        ? String(employee.manager_id)
+        : ''
+    );
+    setEditProfilePhotoUrl(
+      employee.profile_photo_url || ''
+    );
+    setEditStatus(
+      employee.status || 'Active'
+    );
+
+    setError('');
+    setSuccess('');
+  };
+
+  const closeEditEmployee = () => {
+    setEditingEmployee(null);
+    setSelectedEmployeeId(null);
+    setError('');
+  };
+
+  const handleUpdateEmployee = async (
+    event: React.FormEvent
+  ) => {
+    event.preventDefault();
+
+    if (!canManageEmployees || !editingEmployee) {
+      return;
+    }
+
+    const firstName = editFirstName.trim();
+    const lastName = editLastName.trim();
+    const email = editEmail.trim().toLowerCase();
+
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !editEmployeeCode.trim() ||
+      !editDepartment.trim() ||
+      !editPosition.trim() ||
+      !editHireDate ||
+      !editRoleId ||
+      !editStatus
+    ) {
+      setError(
+        'Please complete all required employee fields.'
+      );
+      return;
+    }
+
+    try {
+      setSavingEmployee(true);
+      setError('');
+      setSuccess('');
+
+      const { data: duplicateCode } =
+        await supabase
+          .from('employees')
+          .select('id')
+          .eq(
+            'employee_code',
+            editEmployeeCode.trim()
+          )
+          .neq(
+            'id',
+            editingEmployee.id
+          )
+          .maybeSingle();
+
+      if (duplicateCode) {
+        setError(
+          'That employee ID already exists.'
+        );
+        return;
+      }
+
+      const { data: duplicateEmail } =
+        await supabase
+          .from('employees')
+          .select('id')
+          .eq('email', email)
+          .neq(
+            'id',
+            editingEmployee.id
+          )
+          .maybeSingle();
+
+      if (duplicateEmail) {
+        setError(
+          'Another employee already uses this email.'
+        );
+        return;
+      }
+
+      const selectedRole =
+        roles.find(
+          (role) =>
+            role.id ===
+            Number(editRoleId)
+        );
+
+      const { error: updateError } =
+        await supabase
+          .from('employees')
+          .update({
+            name: `${firstName} ${lastName}`,
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            employee_code:
+              editEmployeeCode.trim(),
+            phone:
+              editPhone.trim() || null,
+            department:
+              editDepartment.trim(),
+            position:
+              editPosition.trim(),
+            hire_date:
+              editHireDate,
+            role_id:
+              Number(editRoleId),
+            role:
+              selectedRole?.name ||
+              editingEmployee.role,
+            manager_id:
+              editManagerId
+                ? Number(editManagerId)
+                : null,
+            profile_photo_url:
+              editProfilePhotoUrl.trim() ||
+              null,
+            status:
+              editStatus,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            'id',
+            editingEmployee.id
+          );
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setSuccess(
+        'Employee updated successfully.'
+      );
+      setEditingEmployee(null);
+      setSelectedEmployeeId(null);
+
+      await fetchData();
+    } catch (err) {
+      console.error(
+        'Update employee error:',
+        err
+      );
+      setError(
+        `Unable to update employee: ${getReadableError(
+          err
+        )}`
+      );
+    } finally {
+      setSavingEmployee(false);
+    }
   };
 
   const handleDeleteEmployee = async (
@@ -911,7 +1139,7 @@ export default function Employees({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  openEditEmployee?.(employee);
+                                  openEditEmployee(employee);
                                 }}
                                 className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
                               >
@@ -922,7 +1150,7 @@ export default function Employees({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  handleDeleteEmployee?.(employee);
+                                  handleDeleteEmployee(employee);
                                 }}
                                 className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition font-semibold cursor-pointer"
                               >
@@ -949,6 +1177,263 @@ export default function Employees({
               </div>
             )}
           </div>
+        )}
+
+        {editingEmployee && (
+          <section className="fixed inset-0 z-50 bg-black/40 p-4 overflow-y-auto">
+            <div className="max-w-5xl mx-auto mt-8 bg-white rounded-2xl shadow-xl p-6">
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Edit Employee
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Update employee information and account settings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditEmployee}
+                  className="text-gray-500 hover:text-gray-800 text-xl font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleUpdateEmployee}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employee ID *
+                  </label>
+                  <input
+                    value={editEmployeeCode}
+                    onChange={(e) =>
+                      setEditEmployeeCode(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name *
+                  </label>
+                  <input
+                    value={editFirstName}
+                    onChange={(e) =>
+                      setEditFirstName(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name *
+                  </label>
+                  <input
+                    value={editLastName}
+                    onChange={(e) =>
+                      setEditLastName(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) =>
+                      setEditEmail(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone
+                  </label>
+                  <input
+                    value={editPhone}
+                    onChange={(e) =>
+                      setEditPhone(e.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department *
+                  </label>
+                  <input
+                    value={editDepartment}
+                    onChange={(e) =>
+                      setEditDepartment(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Position *
+                  </label>
+                  <input
+                    value={editPosition}
+                    onChange={(e) =>
+                      setEditPosition(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Hire Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={editHireDate}
+                    onChange={(e) =>
+                      setEditHireDate(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Role *
+                  </label>
+                  <select
+                    value={editRoleId}
+                    onChange={(e) =>
+                      setEditRoleId(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  >
+                    <option value="">
+                      Select role
+                    </option>
+                    {roles.map((role) => (
+                      <option
+                        key={role.id}
+                        value={role.id}
+                      >
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Manager
+                  </label>
+                  <select
+                    value={editManagerId}
+                    onChange={(e) =>
+                      setEditManagerId(e.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">
+                      No manager
+                    </option>
+                    {employees
+                      .filter(
+                        (employee) =>
+                          employee.id !==
+                          editingEmployee.id
+                      )
+                      .map((employee) => (
+                        <option
+                          key={employee.id}
+                          value={employee.id}
+                        >
+                          {employee.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status *
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) =>
+                      setEditStatus(e.target.value)
+                    }
+                    className={inputClass}
+                    required
+                  >
+                    <option value="Active">
+                      Active
+                    </option>
+                    <option value="Inactive">
+                      Inactive
+                    </option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2 lg:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Photo URL
+                  </label>
+                  <input
+                    value={editProfilePhotoUrl}
+                    onChange={(e) =>
+                      setEditProfilePhotoUrl(
+                        e.target.value
+                      )
+                    }
+                    className={inputClass}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingEmployee}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 cursor-pointer"
+                  >
+                    {savingEmployee
+                      ? 'Saving...'
+                      : 'Save Changes'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeEditEmployee}
+                    disabled={savingEmployee}
+                    className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
         )}
 
         {selectedEmployee && (
