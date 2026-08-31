@@ -1031,7 +1031,6 @@ export default function Sales({
 
         </div>
 
-        </div>
 
         {/* ========================= */}
         {/* CHANGE CALCULATOR */}
@@ -1193,6 +1192,7 @@ export default function Sales({
             </div>
           )}
         </section>
+        </div>
 
         {/* SALES HISTORY */}
 
