@@ -328,11 +328,18 @@ export default function Customers({
     try {
       setSaving(true);
 
-      const customerCode =
+      // The customer code is unique. Because this page can have
+      // stale data (for example, another user created a customer
+      // after this page loaded), retry with the next available code
+      // when PostgreSQL reports a duplicate customer_code.
+      let customerCode =
         generateCustomerCode(customers);
 
-      const { data, error: insertError } =
-        await supabase
+      let data;
+      let insertError;
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const result = await supabase
           .from('customers')
           .insert({
             customer_code: customerCode,
@@ -348,8 +355,48 @@ export default function Customers({
           )
           .single();
 
+        data = result.data;
+        insertError = result.error;
+
+        if (!insertError) {
+          break;
+        }
+
+        const isCustomerCodeConflict =
+          insertError.code === '23505' &&
+          (
+            insertError.message || ''
+          ).includes(
+            'customers_customer_code_key'
+          );
+
+        if (!isCustomerCodeConflict) {
+          throw insertError;
+        }
+
+        const codeMatch =
+          /^CUST-(\d+)$/i.exec(
+            customerCode
+          );
+
+        const nextNumber =
+          codeMatch
+            ? Number(codeMatch[1]) + 1
+            : customers.length + attempt + 2;
+
+        customerCode = `CUST-${String(
+          nextNumber
+        ).padStart(6, '0')}`;
+      }
+
       if (insertError) {
         throw insertError;
+      }
+
+      if (!data) {
+        throw new Error(
+          'Customer was not created.'
+        );
       }
 
       const createdCustomer: Customer =
