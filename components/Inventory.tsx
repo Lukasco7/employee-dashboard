@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 
@@ -10,6 +11,7 @@ interface Product {
   category: string;
   price: number | string;
   stock: number;
+  reorder_threshold: number;
 }
 
 interface InventoryMovement {
@@ -31,7 +33,7 @@ type MovementType =
   | 'Damaged'
   | 'Return';
 
-const LOW_STOCK_THRESHOLD = 10;
+const DEFAULT_REORDER_THRESHOLD = 10;
 
 export default function Inventory({
   onBack,
@@ -57,6 +59,11 @@ export default function Inventory({
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [thresholdSavingId, setThresholdSavingId] =
+    useState<number | null>(null);
+
+  const [thresholdDrafts, setThresholdDrafts] =
+    useState<Record<number, string>>({});
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -79,7 +86,7 @@ export default function Inventory({
           supabase
             .from('products')
             .select(
-              'id, name, category, price, stock'
+              'id, name, category, price, stock, reorder_threshold'
             )
             .order('name', {
               ascending: true,
@@ -116,6 +123,11 @@ export default function Inventory({
               Number(product.price) || 0,
             stock:
               Number(product.stock) || 0,
+            reorder_threshold:
+              Number(
+                product.reorder_threshold
+              ) ||
+              DEFAULT_REORDER_THRESHOLD,
           })
         );
 
@@ -157,6 +169,14 @@ export default function Inventory({
         );
 
       setProducts(loadedProducts);
+      setThresholdDrafts(
+        Object.fromEntries(
+          loadedProducts.map((product) => [
+            product.id,
+            String(product.reorder_threshold),
+          ])
+        )
+      );
       setMovements(loadedMovements);
     } catch (err) {
       console.error(
@@ -227,7 +247,7 @@ export default function Inventory({
   // =========================
 
   const handleRecordMovement = async (
-    e: React.FormEvent
+    e: FormEvent
   ) => {
     e.preventDefault();
 
@@ -396,7 +416,7 @@ export default function Inventory({
           ) {
             matchesStock =
               product.stock >
-              LOW_STOCK_THRESHOLD;
+              product.reorder_threshold;
           }
 
           if (
@@ -406,7 +426,7 @@ export default function Inventory({
             matchesStock =
               product.stock > 0 &&
               product.stock <=
-                LOW_STOCK_THRESHOLD;
+                product.reorder_threshold;
           }
 
           if (
@@ -449,7 +469,7 @@ export default function Inventory({
       (product) =>
         product.stock > 0 &&
         product.stock <=
-          LOW_STOCK_THRESHOLD
+          product.reorder_threshold
     ).length;
 
   const outOfStockCount =
@@ -463,7 +483,8 @@ export default function Inventory({
   // =========================
 
   const getStockLabel = (
-    stock: number
+    stock: number,
+    reorderThreshold: number
   ) => {
     if (stock <= 0) {
       return 'Out of Stock';
@@ -471,7 +492,7 @@ export default function Inventory({
 
     if (
       stock <=
-      LOW_STOCK_THRESHOLD
+      reorderThreshold
     ) {
       return 'Low Stock';
     }
@@ -480,7 +501,8 @@ export default function Inventory({
   };
 
   const getStockClass = (
-    stock: number
+    stock: number,
+    reorderThreshold: number
   ) => {
     if (stock <= 0) {
       return 'bg-red-100 text-red-800';
@@ -488,12 +510,99 @@ export default function Inventory({
 
     if (
       stock <=
-      LOW_STOCK_THRESHOLD
+      reorderThreshold
     ) {
       return 'bg-orange-100 text-orange-800';
     }
 
     return 'bg-green-100 text-green-800';
+  };
+
+  // =========================
+  // REORDER THRESHOLD
+  // =========================
+
+  const handleThresholdChange = (
+    productId: number,
+    value: string
+  ) => {
+    setThresholdDrafts((previous) => ({
+      ...previous,
+      [productId]: value,
+    }));
+  };
+
+  const saveReorderThreshold = async (
+    product: Product
+  ) => {
+    setError('');
+    setSuccess('');
+
+    const rawValue =
+      thresholdDrafts[product.id] ??
+      String(product.reorder_threshold);
+
+    const threshold = Number(rawValue);
+
+    if (
+      rawValue.trim() === '' ||
+      !Number.isInteger(threshold) ||
+      threshold < 0
+    ) {
+      setError(
+        'Reorder threshold must be a whole number greater than or equal to 0.'
+      );
+      return;
+    }
+
+    try {
+      setThresholdSavingId(product.id);
+
+      const { error: updateError } =
+        await supabase
+          .from('products')
+          .update({
+            reorder_threshold: threshold,
+          })
+          .eq('id', product.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setProducts((previous) =>
+        previous.map((item) =>
+          item.id === product.id
+            ? {
+                ...item,
+                reorder_threshold: threshold,
+              }
+            : item
+        )
+      );
+
+      setThresholdDrafts((previous) => ({
+        ...previous,
+        [product.id]: String(threshold),
+      }));
+
+      setSuccess(
+        `${product.name} reorder threshold updated to ${threshold}.`
+      );
+    } catch (err) {
+      console.error(
+        'Error updating reorder threshold:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? `Unable to update reorder threshold: ${err.message}`
+          : 'Unable to update reorder threshold.'
+      );
+    } finally {
+      setThresholdSavingId(null);
+    }
   };
 
   // =========================
@@ -730,6 +839,17 @@ export default function Inventory({
             {/* REASON */}
 
             <div className="md:col-span-2 lg:col-span-4">
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 mb-1">
+                <p className="text-sm font-semibold text-blue-800">
+                  Low-stock threshold
+                </p>
+                <p className="text-sm text-blue-700 mt-1">
+                  Set the reorder level for each product in the inventory table below. Low Stock Alerts will use that product-specific value.
+                </p>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 lg:col-span-4">
 
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Reason / Note
@@ -878,6 +998,10 @@ export default function Inventory({
                     </th>
 
                     <th className="px-5 py-4 text-left text-sm font-semibold text-gray-800">
+                      Reorder At
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-sm font-semibold text-gray-800">
                       Status
                     </th>
 
@@ -908,7 +1032,7 @@ export default function Inventory({
 
                         <td className="px-5 py-4 text-sm text-gray-600">
                           {formatCurrency(
-                            product.price
+                            Number(product.price) || 0
                           )}
                         </td>
 
@@ -919,14 +1043,61 @@ export default function Inventory({
                         </td>
 
                         <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={
+                                thresholdDrafts[
+                                  product.id
+                                ] ??
+                                String(
+                                  product.reorder_threshold
+                                )
+                              }
+                              onChange={(e) =>
+                                handleThresholdChange(
+                                  product.id,
+                                  e.target.value
+                                )
+                              }
+                              className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              aria-label={`Reorder threshold for ${product.name}`}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                saveReorderThreshold(
+                                  product
+                                )
+                              }
+                              disabled={
+                                thresholdSavingId ===
+                                product.id
+                              }
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs font-semibold disabled:opacity-50 cursor-pointer"
+                            >
+                              {thresholdSavingId ===
+                              product.id
+                                ? 'Saving...'
+                                : 'Save'}
+                            </button>
+                          </div>
+                        </td>
+
+                        <td className="px-5 py-4">
 
                           <span
                             className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStockClass(
-                              product.stock
+                              product.stock,
+                              product.reorder_threshold
                             )}`}
                           >
                             {getStockLabel(
-                              product.stock
+                              product.stock,
+                              product.reorder_threshold
                             )}
                           </span>
 

@@ -58,6 +58,16 @@ export default function Sales({
   const [amountReceived, setAmountReceived] = useState('');
 
   // =========================
+  // RECEIPT
+  // =========================
+  const [receiptSale, setReceiptSale] =
+    useState<Sale | null>(null);
+  const [receiptAmountReceived, setReceiptAmountReceived] =
+    useState<number | null>(null);
+  const [receiptChange, setReceiptChange] =
+    useState<number | null>(null);
+
+  // =========================
   // LOAD PRODUCTS
   // =========================
 
@@ -461,6 +471,33 @@ export default function Sales({
     setProductId('');
     setQuantity('');
 
+    const recordedSale: Sale = {
+      id: Number(
+        (
+          saleResult as {
+            sale?: { id?: number };
+          }
+        )?.sale?.id ?? Date.now()
+      ),
+      product_id: Number(selectedProduct.id),
+      amount,
+      quantity: newQuantity,
+      sale_date: new Date().toISOString(),
+      product: selectedProduct,
+    };
+
+    setReceiptSale(recordedSale);
+    setReceiptAmountReceived(
+      validAmountReceived
+        ? parsedAmountReceived
+        : null
+    );
+    setReceiptChange(
+      validAmountDue && validAmountReceived
+        ? Math.max(changeDue, 0)
+        : null
+    );
+
     setSuccess(
       `Sale recorded successfully. ${newQuantity} unit${
         newQuantity === 1 ? '' : 's'
@@ -492,6 +529,23 @@ export default function Sales({
     setSaving(false);
   }
 };
+
+  // =========================
+  // PRINT RECEIPT
+  // =========================
+  const printReceipt = (
+    sale: Sale,
+    amountReceivedValue: number | null = null,
+    changeValue: number | null = null
+  ) => {
+    setReceiptSale(sale);
+    setReceiptAmountReceived(amountReceivedValue);
+    setReceiptChange(changeValue);
+
+    window.setTimeout(() => {
+      window.print();
+    }, 100);
+  };
 
   // =========================
   // DELETE SALE
@@ -747,8 +801,26 @@ export default function Sales({
         {/* SUCCESS */}
 
         {success && (
-          <div className="bg-green-100 border border-green-200 text-green-700 rounded-lg p-4 mb-6">
-            {success}
+          <div className="bg-green-100 border border-green-200 text-green-700 rounded-lg p-4 mb-6 print:hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>{success}</span>
+
+              {receiptSale && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    printReceipt(
+                      receiptSale,
+                      receiptAmountReceived,
+                      receiptChange
+                    )
+                  }
+                  className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 transition font-semibold cursor-pointer whitespace-nowrap"
+                >
+                  🖨️ Print Receipt
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1184,26 +1256,28 @@ export default function Sales({
                         </td>
 
                         <td className="px-6 py-4">
-
-                          {canDeleteSales ? (
+                          <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                handleDeleteSale(
-                                  sale
-                                )
-                              }
-                              disabled={saving}
-                              className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition cursor-pointer font-semibold disabled:opacity-50"
+                              onClick={() => printReceipt(sale)}
+                              className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition cursor-pointer font-semibold"
                             >
-                              🗑️ Delete
+                              🖨️ Print
                             </button>
-                          ) : (
-                            <span className="text-xs font-medium text-gray-400">
-                              View only
-                            </span>
-                          )}
 
+                            {canDeleteSales ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteSale(sale)
+                                }
+                                disabled={saving}
+                                className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition cursor-pointer font-semibold disabled:opacity-50"
+                              >
+                                🗑️ Delete
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
 
                       </tr>
@@ -1218,8 +1292,226 @@ export default function Sales({
 
           </div>
         )}
+      {/* ========================= */}
+      {/* PRINTABLE RECEIPT */}
+      {/* ========================= */}
+      {receiptSale && (
+        <div className="print-receipt">
+          <div className="receipt-paper">
+            <h1>MOLUK ENTERPRISE</h1>
+            <p className="receipt-title">SALES RECEIPT</p>
+
+            <div className="receipt-divider" />
+
+            <div className="receipt-meta">
+              <div>
+                <span>Receipt No.</span>
+                <strong>
+                  {String(receiptSale.id).padStart(6, '0')}
+                </strong>
+              </div>
+
+              <div>
+                <span>Date</span>
+                <strong>
+                  {new Date(
+                    receiptSale.sale_date
+                  ).toLocaleString()}
+                </strong>
+              </div>
+
+              <div>
+                <span>Served by</span>
+                <strong>
+                  {userEmail || 'Sales Staff'}
+                </strong>
+              </div>
+            </div>
+
+            <div className="receipt-divider" />
+
+            <div className="receipt-item">
+              <div className="receipt-item-main">
+                <strong>
+                  {receiptSale.product?.name ?? 'Unknown Product'}
+                </strong>
+                <span>
+                  {receiptSale.quantity} ×{' '}
+                  {formatCurrency(
+                    receiptSale.product?.price ??
+                      Number(receiptSale.amount) /
+                        Math.max(Number(receiptSale.quantity), 1)
+                  )}
+                </span>
+              </div>
+
+              <strong>
+                {formatCurrency(receiptSale.amount)}
+              </strong>
+            </div>
+
+            <div className="receipt-divider" />
+
+            <div className="receipt-total">
+              <span>TOTAL</span>
+              <strong>
+                {formatCurrency(receiptSale.amount)}
+              </strong>
+            </div>
+
+            {receiptAmountReceived !== null && (
+              <div className="receipt-line">
+                <span>Amount Received</span>
+                <strong>
+                  {formatMoney(receiptAmountReceived)}
+                </strong>
+              </div>
+            )}
+
+            {receiptChange !== null && (
+              <div className="receipt-line">
+                <span>Change</span>
+                <strong>
+                  {formatMoney(receiptChange)}
+                </strong>
+              </div>
+            )}
+
+            <div className="receipt-divider" />
+
+            <p className="receipt-thanks">
+              Thank you for shopping with Moluk Enterprise.
+            </p>
+
+            <p className="receipt-footer">
+              Please keep this receipt for your records.
+            </p>
+          </div>
+        </div>
+      )}
+
 
       </main>
+
+    <style jsx global>{`
+      .print-receipt {
+        display: none;
+      }
+
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 4mm;
+        }
+
+        body {
+          margin: 0;
+          background: white !important;
+        }
+
+        body * {
+          visibility: hidden !important;
+        }
+
+        .print-receipt,
+        .print-receipt * {
+          visibility: visible !important;
+        }
+
+        .print-receipt {
+          display: block !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+
+        .receipt-paper {
+          width: 72mm;
+          margin: 0 auto;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #111;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+
+        .receipt-paper h1 {
+          margin: 0;
+          text-align: center;
+          font-size: 20px;
+          font-weight: 800;
+        }
+
+        .receipt-title {
+          margin: 2px 0 8px;
+          text-align: center;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .receipt-divider {
+          border-top: 1px dashed #111;
+          margin: 8px 0;
+        }
+
+        .receipt-meta {
+          display: grid;
+          gap: 4px;
+        }
+
+        .receipt-meta div,
+        .receipt-line,
+        .receipt-total,
+        .receipt-item {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .receipt-meta span,
+        .receipt-line span {
+          color: #444;
+        }
+
+        .receipt-meta strong {
+          text-align: right;
+          max-width: 48mm;
+          overflow-wrap: anywhere;
+        }
+
+        .receipt-item {
+          align-items: flex-start;
+        }
+
+        .receipt-item-main {
+          display: grid;
+          gap: 2px;
+          max-width: 48mm;
+        }
+
+        .receipt-item-main span {
+          color: #444;
+        }
+
+        .receipt-total {
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        .receipt-thanks {
+          margin: 12px 0 4px;
+          text-align: center;
+          font-weight: 700;
+        }
+
+        .receipt-footer {
+          margin: 0;
+          text-align: center;
+          color: #555;
+          font-size: 10px;
+        }
+      }
+    `}</style>
 
     </div>
   );
