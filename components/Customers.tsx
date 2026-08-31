@@ -393,43 +393,51 @@ export default function Customers({
         `${createdCustomer.first_name} ${createdCustomer.last_name} was created successfully.`
       );
     } catch (err) {
-      console.error(
-        'CREATE CUSTOMER ERROR MESSAGE:',
-        err instanceof Error
-          ? err.message
-          : 'No standard error message'
-      );
+    const supabaseError = err as {
+      message?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+      status?: number;
+    };
 
-      console.error(
-        'CREATE CUSTOMER ERROR DETAILS:',
-        (err as { details?: string })?.details ?? ''
-      );
+    const errorMessage =
+      err instanceof Error
+        ? err.message
+        : supabaseError?.message ||
+          supabaseError?.details ||
+          supabaseError?.hint ||
+          'Unable to create customer.';
 
-      console.error(
-        'CREATE CUSTOMER ERROR HINT:',
-        (err as { hint?: string })?.hint ?? ''
-      );
+    console.error(
+      'CREATE CUSTOMER ERROR MESSAGE:',
+      errorMessage
+    );
+    console.error(
+      'CREATE CUSTOMER ERROR DETAILS:',
+      supabaseError?.details ?? ''
+    );
+    console.error(
+      'CREATE CUSTOMER ERROR HINT:',
+      supabaseError?.hint ?? ''
+    );
+    console.error(
+      'CREATE CUSTOMER ERROR CODE:',
+      supabaseError?.code ?? ''
+    );
+    console.error(
+      'CREATE CUSTOMER ERROR STATUS:',
+      supabaseError?.status ?? ''
+    );
+    console.error(
+      'CREATE CUSTOMER ERROR FULL:',
+      JSON.stringify(err, null, 2)
+    );
 
-      console.error(
-        'CREATE CUSTOMER ERROR CODE:',
-        (err as { code?: string })?.code ?? ''
-      );
-
-      console.error(
-        'CREATE CUSTOMER ERROR FULL:',
-        JSON.stringify(
-          err,
-          Object.getOwnPropertyNames(err),
-          2
-        )
-      );
-
-      setError(
-        err instanceof Error
-          ? `Unable to create customer: ${err.message}`
-          : 'Unable to create customer.'
-      );
-    } finally {
+    setError(
+      `Unable to create customer: ${errorMessage}`
+    );
+  } finally {
       setSaving(false);
     }
   };
