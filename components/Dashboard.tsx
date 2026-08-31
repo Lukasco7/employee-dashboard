@@ -41,6 +41,22 @@ export default function Dashboard({
   onLowStock,
   onCustomers,
 }: DashboardProps) {
+  const normalizedRole =
+    (role || '').trim().toLowerCase();
+
+  const canManageEmployees =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'hr' ||
+    normalizedRole === 'manager';
+
+  const canManageInventory =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'manager';
+
+  const canViewAnalytics =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'manager';
+
   const [productCount, setProductCount] = useState(0);
   const [employeeCount, setEmployeeCount] = useState(0);
   const [revenue, setRevenue] = useState(0);
@@ -454,55 +470,58 @@ export default function Dashboard({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-
-              <button
-                type="button"
-                onClick={onInventory}
-                className="group text-left rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-sm">
-                    🏪
+              {canManageInventory ? (
+                <button
+                  type="button"
+                  onClick={onInventory}
+                  className="group text-left rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-sm">
+                      🏪
+                    </div>
+                    <span className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                   </div>
-                  <span className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-                </div>
-                <h4 className="text-base font-bold text-gray-900 mt-5">Inventory</h4>
-                <p className="text-sm text-gray-500 mt-1">Monitor stock and inventory movements.</p>
-              </button>
+                  <h4 className="text-base font-bold text-gray-900 mt-5">Inventory</h4>
+                  <p className="text-sm text-gray-500 mt-1">Monitor stock and inventory movements.</p>
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={onAnalytics}
-                className="group text-left rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-purple-200 transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="w-11 h-11 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shadow-sm">
-                    📊
+              {canViewAnalytics ? (
+                <button
+                  type="button"
+                  onClick={onAnalytics}
+                  className="group text-left rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-purple-200 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-11 h-11 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shadow-sm">
+                      📊
+                    </div>
+                    <span className="text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                   </div>
-                  <span className="text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-                </div>
-                <h4 className="text-base font-bold text-gray-900 mt-5">Analytics</h4>
-                <p className="text-sm text-gray-500 mt-1">Review sales performance and trends.</p>
-              </button>
+                  <h4 className="text-base font-bold text-gray-900 mt-5">Analytics</h4>
+                  <p className="text-sm text-gray-500 mt-1">Review sales performance and trends.</p>
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={onLowStock}
-                className="group text-left rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-red-200 transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="w-11 h-11 rounded-xl bg-red-600 text-white flex items-center justify-center text-xl shadow-sm">
-                    🚨
+              {canManageInventory ? (
+                <button
+                  type="button"
+                  onClick={onLowStock}
+                  className="group text-left rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-5 hover:-translate-y-1 hover:shadow-lg hover:border-red-200 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-11 h-11 rounded-xl bg-red-600 text-white flex items-center justify-center text-xl shadow-sm">
+                      🚨
+                    </div>
+                    <span className="text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                   </div>
-                  <span className="text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-                </div>
-                <h4 className="text-base font-bold text-gray-900 mt-5">Low Stock Alerts</h4>
-                <p className="text-sm text-gray-500 mt-1">Review products needing attention.</p>
-              </button>
+                  <h4 className="text-base font-bold text-gray-900 mt-5">Low Stock Alerts</h4>
+                  <p className="text-sm text-gray-500 mt-1">Review products needing attention.</p>
+                </button>
+              ) : null}
 
-              {(role || '').trim().toLowerCase() === 'admin' ||
-              (role || '').trim().toLowerCase() === 'manager' ||
-              (role || '').trim().toLowerCase() === 'hr' ? (
+              {canManageEmployees ? (
                 <button
                   type="button"
                   onClick={onEmployees}
@@ -517,17 +536,22 @@ export default function Dashboard({
                   <h4 className="text-base font-bold text-gray-900 mt-5">Employees</h4>
                   <p className="text-sm text-gray-500 mt-1">Manage employee profiles and account links.</p>
                 </button>
-              ) : (
+              ) : null}
+
+              {!canManageInventory && !canViewAnalytics && !canManageEmployees && (
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
                   <div className="w-11 h-11 rounded-xl bg-gray-200 text-gray-500 flex items-center justify-center text-xl">
                     🔒
                   </div>
                   <h4 className="text-base font-bold text-gray-700 mt-5">Management Tools</h4>
-                  <p className="text-sm text-gray-500 mt-1">Additional management tools are restricted by role.</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Additional management tools are restricted by role.
+                  </p>
                 </div>
               )}
             </div>
           </div>
+
         </section>
 
       </main>

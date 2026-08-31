@@ -54,7 +54,7 @@ export default function Customers({
 }: {
   onBack: () => void;
   onSales: () => void;
-  onWishlist: (customerId: number) => void;
+  onWishlist?: (customerId: number) => void;
 }) {
   const [customers, setCustomers] =
     useState<Customer[]>([]);
@@ -221,13 +221,6 @@ export default function Customers({
       (customer) =>
         customer.id === selectedCustomerId
     ) || null;
-
-  const selectedCustomerSales =
-    selectedCustomer
-      ? sales.filter((sale) => {
-          return false;
-        })
-      : [];
 
   const customerInitials = (
     customer: Customer
@@ -879,17 +872,18 @@ export default function Customers({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={onWishlist.bind(
-                        null,
-                        selectedCustomer.id
-                      )}
-                      className="w-full bg-pink-600 text-white px-5 py-3 rounded-lg hover:bg-pink-700 transition font-semibold cursor-pointer"
-                    >
-                      ❤️ Wishlists
-                    </button>
+                  <div className={`grid grid-cols-1 ${onWishlist ? 'sm:grid-cols-2' : ''} gap-3`}>
+                    {onWishlist && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onWishlist(selectedCustomer.id)
+                        }
+                        className="w-full bg-pink-600 text-white px-5 py-3 rounded-lg hover:bg-pink-700 transition font-semibold cursor-pointer"
+                      >
+                        ❤️ Wishlists
+                      </button>
+                    )}
 
                     <button
                       type="button"

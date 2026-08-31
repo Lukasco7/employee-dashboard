@@ -266,9 +266,8 @@ export default function Home() {
       {currentPage === 'customers' && (
         <Customers
           onBack={handleBackToDashboard}
-          onSales={handleSales} onWishlist={function (customerId: number): void {
-            throw new Error('Function not implemented.');
-          } }        />
+          onSales={handleSales}
+        />
       )}
     </>
   );

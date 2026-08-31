@@ -34,31 +34,6 @@ interface EmployeesProps {
   userRole?: string;
 }
 
-const inputClass =
-  'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500';
-
-const getReadableError = (error: unknown) => {
-  if (!error) return 'Unknown error.';
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  try {
-    const value = JSON.stringify(
-      error,
-      Object.getOwnPropertyNames(error),
-      2
-    );
-
-    return value && value !== '{}'
-      ? value
-      : String(error);
-  } catch {
-    return String(error);
-  }
-};
-
 export default function Employees({
   onBack,
   userRole,
@@ -66,413 +41,394 @@ export default function Employees({
   const normalizedRole =
     (userRole || '').trim().toLowerCase();
 
-  const canManageEmployees =
+  const canAddEmployee =
     normalizedRole === 'admin' ||
-    normalizedRole === 'manager' ||
-    normalizedRole === 'administrator';
-  const [employees, setEmployees] =
-    useState<Employee[]>([]);
-  const [roles, setRoles] =
-    useState<Role[]>([]);
+    normalizedRole === 'hr';
 
-  const [loading, setLoading] =
-    useState(true);
-  const [error, setError] =
-    useState('');
-  const [success, setSuccess] =
-    useState('');
+  const canEditEmployee =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'hr' ||
+    normalizedRole === 'manager';
 
-  const [search, setSearch] =
-    useState('');
+  const canDeleteEmployee =
+    normalizedRole === 'admin';
+  // =========================
+  // DATA
+  // =========================
 
-  const [showAddForm, setShowAddForm] =
-    useState(false);
-  const [newEmployeeName, setNewEmployeeName] =
-    useState('');
-  const [newEmployeeEmail, setNewEmployeeEmail] =
-    useState('');
-  const [newEmployeeRole, setNewEmployeeRole] =
-    useState('Employee');
-  const [newEmployeeStatus, setNewEmployeeStatus] =
-    useState('Active');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
 
-  const [selectedEmployeeId, setSelectedEmployeeId] =
-    useState<number | null>(null);
+  // =========================
+  // UI
+  // =========================
 
-  // EDIT EMPLOYEE
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] =
     useState<Employee | null>(null);
+
+  // =========================
+  // SEARCH / FILTERS
+  // =========================
+
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] =
+    useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  // =========================
+  // ADD FORM
+  // =========================
+
+  const [employeeCode, setEmployeeCode] =
+    useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [department, setDepartment] =
+    useState('');
+  const [position, setPosition] = useState('');
+  const [hireDate, setHireDate] = useState('');
+  const [roleId, setRoleId] = useState('');
+  const [managerId, setManagerId] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] =
+    useState('');
+  const [status, setStatus] = useState('Active');
+
+  // =========================
+  // EDIT FORM
+  // =========================
+
   const [editEmployeeCode, setEditEmployeeCode] =
     useState('');
   const [editFirstName, setEditFirstName] =
     useState('');
   const [editLastName, setEditLastName] =
     useState('');
-  const [editEmail, setEditEmail] =
-    useState('');
-  const [editPhone, setEditPhone] =
-    useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editDepartment, setEditDepartment] =
     useState('');
   const [editPosition, setEditPosition] =
     useState('');
   const [editHireDate, setEditHireDate] =
     useState('');
-  const [editRoleId, setEditRoleId] =
-    useState('');
+  const [editRoleId, setEditRoleId] = useState('');
   const [editManagerId, setEditManagerId] =
     useState('');
   const [editProfilePhotoUrl, setEditProfilePhotoUrl] =
     useState('');
   const [editStatus, setEditStatus] =
     useState('Active');
-  const [savingEmployee, setSavingEmployee] =
-    useState(false);
 
-  const [linkingEmployee, setLinkingEmployee] =
-    useState<Employee | null>(null);
-  const [loginEmail, setLoginEmail] =
-    useState('');
-  const [linking, setLinking] =
-    useState(false);
+  // =========================
+  // LOAD DATA
+  // =========================
 
-  const [currentRole, setCurrentRole] =
-    useState('');
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const loadRole = async () => {
-    try {
-      if (userRole) {
-        setCurrentRole(
-          userRole.toLowerCase().trim()
-        );
-        return;
-      }
-
-      const savedUser =
-        localStorage.getItem('user');
-
-      if (savedUser) {
-        const role =
-          JSON.parse(savedUser)?.role;
-
-        setCurrentRole(
-          String(role || '')
-            .toLowerCase()
-            .trim()
-        );
-      }
-    } catch {
-      setCurrentRole('');
-    }
-  };
-
-  const fetchData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const [
-        employeeResult,
-        roleResult,
-      ] = await Promise.all([
-        supabase
-          .from('employees')
-          .select(`
-            id,
-            name,
-            role,
-            email,
-            status,
-            created_at,
-            role_id,
-            user_id,
-            first_name,
-            last_name,
-            phone,
-            employee_code,
-            department,
-            position,
-            hire_date,
-            manager_id,
-            profile_photo_url,
-            updated_at
-          `)
-          .order('id', {
-            ascending: true,
-          }),
-
-        supabase
-          .from('roles')
-          .select('id, name')
-          .order('id', {
-            ascending: true,
-          }),
+      await Promise.all([
+        fetchEmployees(),
+        fetchRoles(),
       ]);
-
-      if (employeeResult.error) {
-        throw employeeResult.error;
-      }
-
-      if (roleResult.error) {
-        throw roleResult.error;
-      }
-
-      setEmployees(
-        employeeResult.data || []
-      );
-
-      setRoles(
-        roleResult.data || []
-      );
     } catch (err) {
-      console.error(
-        'Employee load error:',
-        getReadableError(err)
-      );
+      console.error('Error loading employee data:', err);
 
-      setError(
-        `Unable to load employees: ${getReadableError(
-          err
-        )}`
-      );
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Unable to load employee data.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadRole();
-    fetchData();
-  }, []);
+  // =========================
+  // FETCH EMPLOYEES
+  // =========================
 
-  const filteredEmployees =
-    useMemo(() => {
-      const term =
-        search
-          .toLowerCase()
-          .trim();
+  const fetchEmployees = async () => {
+    const { data, error } = await supabase
+      .from('employees')
+      .select(`
+        id,
+        name,
+        role,
+        email,
+        status,
+        created_at,
+        role_id,
+        user_id,
+        first_name,
+        last_name,
+        phone,
+        employee_code,
+        department,
+        position,
+        hire_date,
+        manager_id,
+        profile_photo_url,
+        updated_at
+      `)
+      .order('id', {
+        ascending: true,
+      });
 
-      if (!term) {
-        return employees;
-      }
+    if (error) {
+      throw error;
+    }
 
-      return employees.filter(
-        (employee) =>
-          employee.name
-            .toLowerCase()
-            .includes(term) ||
-          employee.email
-            .toLowerCase()
-            .includes(term) ||
-          (
-            employee.employee_code ||
-            ''
-          )
-            .toLowerCase()
-            .includes(term) ||
-          (
-            employee.department ||
-            ''
-          )
-            .toLowerCase()
-            .includes(term)
-      );
-    }, [employees, search]);
+    setEmployees(data || []);
+  };
 
-  const selectedEmployee =
-    employees.find(
-      (employee) =>
-        employee.id ===
-        selectedEmployeeId
-    ) || null;
+  // =========================
+  // FETCH ROLES
+  // =========================
+
+  const fetchRoles = async () => {
+    const { data, error } = await supabase
+      .from('roles')
+      .select('id, name')
+      .order('id', {
+        ascending: true,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    setRoles(data || []);
+  };
+
+  // =========================
+  // RESET ADD FORM
+  // =========================
+
+  const resetAddForm = () => {
+    setEmployeeCode('');
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setPhone('');
+    setDepartment('');
+    setPosition('');
+    setHireDate('');
+    setRoleId('');
+    setManagerId('');
+    setProfilePhotoUrl('');
+    setStatus('Active');
+  };
+
+  // =========================
+  // RESET EDIT FORM
+  // =========================
+
+  const resetEditForm = () => {
+    setEditEmployeeCode('');
+    setEditFirstName('');
+    setEditLastName('');
+    setEditEmail('');
+    setEditPhone('');
+    setEditDepartment('');
+    setEditPosition('');
+    setEditHireDate('');
+    setEditRoleId('');
+    setEditManagerId('');
+    setEditProfilePhotoUrl('');
+    setEditStatus('Active');
+  };
+
+  // =========================
+  // VALIDATE EMAIL
+  // =========================
+
+  const isValidEmail = (value: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      value
+    );
+  };
+
+  // =========================
+  // ADD EMPLOYEE
+  // =========================
 
   const handleAddEmployee = async (
-    event: React.FormEvent
+    e: React.FormEvent
   ) => {
-    event.preventDefault();
+    e.preventDefault();
 
-    if (!canManageEmployees) {
+    if (!canAddEmployee) {
       setError(
         'You do not have permission to add employees.'
       );
       return;
     }
 
-    const name =
-      newEmployeeName.trim();
-    const email =
-      newEmployeeEmail.trim().toLowerCase();
-    const role =
-      newEmployeeRole.trim();
-    const status =
-      newEmployeeStatus.trim();
+    setError('');
+    setSuccess('');
 
-    if (!name || !email || !role || !status) {
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
+
+    if (
+      !employeeCode.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !cleanEmail ||
+      !department.trim() ||
+      !position.trim() ||
+      !hireDate ||
+      !roleId ||
+      !status
+    ) {
       setError(
-        'Please complete the employee name, email, role and status.'
+        'Please complete all required employee fields.'
+      );
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setError(
+        'Please enter a valid email address.'
       );
       return;
     }
 
     try {
-      setError('');
-      setSuccess('');
+      setSaving(true);
 
-      const { error } =
+      // Check employee code
+      const { data: existingCode } =
         await supabase
           .from('employees')
-          .insert({
-            name,
-            email,
-            role,
-            status,
-          });
+          .select('id')
+          .eq(
+            'employee_code',
+            employeeCode.trim()
+          )
+          .maybeSingle();
+
+      if (existingCode) {
+        setError(
+          'That employee ID already exists.'
+        );
+        return;
+      }
+
+      // Check email
+      const { data: existingEmail } =
+        await supabase
+          .from('employees')
+          .select('id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+      if (existingEmail) {
+        setError(
+          'An employee with this email already exists.'
+        );
+        return;
+      }
+
+      const selectedRole = roles.find(
+        (role) =>
+          role.id === Number(roleId)
+      );
+
+      const selectedRoleName =
+        selectedRole?.name || '';
+
+      const { error } = await supabase
+        .from('employees')
+        .insert({
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          role: selectedRoleName,
+          email: cleanEmail,
+          status,
+          employee_code:
+            employeeCode.trim(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim() || null,
+          department:
+            department.trim(),
+          position:
+            position.trim(),
+          hire_date: hireDate,
+          role_id: Number(roleId),
+          manager_id: managerId
+            ? Number(managerId)
+            : null,
+          profile_photo_url:
+            profilePhotoUrl.trim() || null,
+        });
 
       if (error) {
         throw error;
       }
 
-      setNewEmployeeName('');
-      setNewEmployeeEmail('');
-      setNewEmployeeRole('Employee');
-      setNewEmployeeStatus('Active');
+      resetAddForm();
       setShowAddForm(false);
 
       setSuccess(
-        `${name} was added successfully.`
+        'Employee added successfully.'
       );
 
-      await fetchData();
+      await fetchEmployees();
     } catch (err) {
       console.error(
-        'Add employee error:',
+        'Error adding employee:',
         err
       );
 
-      setError(
-        `Unable to add employee: ${getReadableError(
-          err
-        )}`
-      );
-    }
-  };
-
-  const openLinkAccount = (
-    employee: Employee
-  ) => {
-    setError('');
-    setSuccess('');
-    setLinkingEmployee(employee);
-    setLoginEmail('');
-  };
-
-  const closeLinkAccount = () => {
-    setLinkingEmployee(null);
-    setLoginEmail('');
-    setLinking(false);
-  };
-
-  const handleLinkAccount = async (
-    event: React.FormEvent
-  ) => {
-    event.preventDefault();
-
-    setError('');
-    setSuccess('');
-
-    if (
-      currentRole !==
-      'admin'
-    ) {
-      setError(
-        'Only an Admin can link employee login accounts.'
-      );
-      return;
-    }
-
-    if (!linkingEmployee) {
-      return;
-    }
-
-    const cleanEmail =
-      loginEmail
-        .trim()
-        .toLowerCase();
-
-    if (!cleanEmail) {
-      setError(
-        'Enter the employee login email.'
-      );
-      return;
-    }
-
-    try {
-      setLinking(true);
-
-      const {
-        data,
-        error: rpcError,
-      } = await supabase.rpc(
-        'link_employee_auth_account',
-        {
-          p_employee_id:
-            linkingEmployee.id,
-          p_login_email:
-            cleanEmail,
-        }
-      );
-
-      if (rpcError) {
-        throw rpcError;
+      if (err instanceof Error) {
+        setError(
+          `Unable to add employee: ${err.message}`
+        );
+      } else {
+        setError(
+          'Unable to add employee.'
+        );
       }
-
-      setSuccess(
-        data?.message ||
-          'Login account linked successfully.'
-      );
-
-      closeLinkAccount();
-      await fetchData();
-    } catch (err) {
-      console.error(
-        'Link employee account error:',
-        getReadableError(err)
-      );
-
-      setError(
-        getReadableError(err)
-      );
     } finally {
-      setLinking(false);
+      setSaving(false);
     }
   };
 
-  const openEditEmployee = (
+  // =========================
+  // START EDIT
+  // =========================
+
+  const startEditing = (
     employee: Employee
   ) => {
-    if (!canManageEmployees) {
-      setError(
-        'You do not have permission to edit employees.'
-      );
-      return;
-    }
-
-    setSelectedEmployeeId(employee.id);
     setEditingEmployee(employee);
-    setLinkingEmployee(null);
 
     setEditEmployeeCode(
       employee.employee_code || ''
     );
     setEditFirstName(
-      employee.first_name ||
-        employee.name.split(' ')[0] ||
-        ''
+      employee.first_name || ''
     );
     setEditLastName(
-      employee.last_name ||
-        employee.name.split(' ').slice(1).join(' ') ||
-        ''
+      employee.last_name || ''
     );
     setEditEmail(
       employee.email || ''
@@ -506,34 +462,53 @@ export default function Employees({
       employee.status || 'Active'
     );
 
+    setShowAddForm(false);
     setError('');
     setSuccess('');
   };
 
-  const closeEditEmployee = () => {
+  // =========================
+  // CANCEL EDIT
+  // =========================
+
+  const cancelEditing = () => {
     setEditingEmployee(null);
-    setSelectedEmployeeId(null);
+    resetEditForm();
     setError('');
   };
 
-  const handleUpdateEmployee = async (
-    event: React.FormEvent
-  ) => {
-    event.preventDefault();
+  // =========================
+  // UPDATE EMPLOYEE
+  // =========================
 
-    if (!canManageEmployees || !editingEmployee) {
+  const handleUpdateEmployee = async (
+    e: React.FormEvent
+  ) => {
+    e.preventDefault();
+
+    if (!canEditEmployee) {
+      setError(
+        'You do not have permission to edit employees.'
+      );
       return;
     }
 
-    const firstName = editFirstName.trim();
-    const lastName = editLastName.trim();
-    const email = editEmail.trim().toLowerCase();
+    if (!editingEmployee) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+
+    const cleanEmail = editEmail
+      .trim()
+      .toLowerCase();
 
     if (
-      !firstName ||
-      !lastName ||
-      !email ||
       !editEmployeeCode.trim() ||
+      !editFirstName.trim() ||
+      !editLastName.trim() ||
+      !cleanEmail ||
       !editDepartment.trim() ||
       !editPosition.trim() ||
       !editHireDate ||
@@ -546,12 +521,18 @@ export default function Employees({
       return;
     }
 
-    try {
-      setSavingEmployee(true);
-      setError('');
-      setSuccess('');
+    if (!isValidEmail(cleanEmail)) {
+      setError(
+        'Please enter a valid email address.'
+      );
+      return;
+    }
 
-      const { data: duplicateCode } =
+    try {
+      setSaving(true);
+
+      // Check employee code against other employees
+      const { data: existingCode } =
         await supabase
           .from('employees')
           .select('id')
@@ -565,333 +546,562 @@ export default function Employees({
           )
           .maybeSingle();
 
-      if (duplicateCode) {
+      if (existingCode) {
         setError(
           'That employee ID already exists.'
         );
         return;
       }
 
-      const { data: duplicateEmail } =
+      // Check email against other employees
+      const { data: existingEmail } =
         await supabase
           .from('employees')
           .select('id')
-          .eq('email', email)
+          .eq('email', cleanEmail)
           .neq(
             'id',
             editingEmployee.id
           )
           .maybeSingle();
 
-      if (duplicateEmail) {
+      if (existingEmail) {
         setError(
           'Another employee already uses this email.'
         );
         return;
       }
 
-      const selectedRole =
-        roles.find(
-          (role) =>
-            role.id ===
-            Number(editRoleId)
+      const selectedRole = roles.find(
+        (role) =>
+          role.id ===
+          Number(editRoleId)
+      );
+
+      const selectedRoleName =
+        selectedRole?.name || '';
+
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          name: `${editFirstName.trim()} ${editLastName.trim()}`,
+          role: selectedRoleName,
+          email: cleanEmail,
+          status: editStatus,
+          employee_code:
+            editEmployeeCode.trim(),
+          first_name:
+            editFirstName.trim(),
+          last_name:
+            editLastName.trim(),
+          phone:
+            editPhone.trim() || null,
+          department:
+            editDepartment.trim(),
+          position:
+            editPosition.trim(),
+          hire_date: editHireDate,
+          role_id:
+            Number(editRoleId),
+          manager_id:
+            editManagerId
+              ? Number(editManagerId)
+              : null,
+          profile_photo_url:
+            editProfilePhotoUrl.trim() ||
+            null,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          'id',
+          editingEmployee.id
         );
 
-      const { error: updateError } =
-        await supabase
-          .from('employees')
-          .update({
-            name: `${firstName} ${lastName}`,
-            first_name: firstName,
-            last_name: lastName,
-            email,
-            employee_code:
-              editEmployeeCode.trim(),
-            phone:
-              editPhone.trim() || null,
-            department:
-              editDepartment.trim(),
-            position:
-              editPosition.trim(),
-            hire_date:
-              editHireDate,
-            role_id:
-              Number(editRoleId),
-            role:
-              selectedRole?.name ||
-              editingEmployee.role,
-            manager_id:
-              editManagerId
-                ? Number(editManagerId)
-                : null,
-            profile_photo_url:
-              editProfilePhotoUrl.trim() ||
-              null,
-            status:
-              editStatus,
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq(
-            'id',
-            editingEmployee.id
-          );
-
-      if (updateError) {
-        throw updateError;
+      if (error) {
+        throw error;
       }
 
       setSuccess(
         'Employee updated successfully.'
       );
-      setEditingEmployee(null);
-      setSelectedEmployeeId(null);
 
-      await fetchData();
+      cancelEditing();
+
+      await fetchEmployees();
     } catch (err) {
       console.error(
-        'Update employee error:',
+        'Error updating employee:',
         err
       );
-      setError(
-        `Unable to update employee: ${getReadableError(
-          err
-        )}`
-      );
+
+      if (err instanceof Error) {
+        setError(
+          `Unable to update employee: ${err.message}`
+        );
+      } else {
+        setError(
+          'Unable to update employee.'
+        );
+      }
     } finally {
-      setSavingEmployee(false);
+      setSaving(false);
     }
   };
+
+  // =========================
+  // DELETE
+  // =========================
 
   const handleDeleteEmployee = async (
     employee: Employee
   ) => {
-    if (!canManageEmployees) {
+    if (!canDeleteEmployee) {
       setError(
         'You do not have permission to delete employees.'
       );
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${employee.name}"? This removes the employee record.`
-    );
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to delete "${getEmployeeName(
+          employee
+        )}"?`
+      );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
 
     try {
-      setError('');
-      setSuccess('');
+      setSaving(true);
 
-      const { error: deleteError } =
+      const { error } =
         await supabase
           .from('employees')
           .delete()
-          .eq('id', employee.id);
+          .eq(
+            'id',
+            employee.id
+          );
 
-      if (deleteError) {
-        throw deleteError;
+      if (error) {
+        throw error;
       }
 
       if (
-        selectedEmployeeId ===
+        editingEmployee?.id ===
         employee.id
       ) {
-        setSelectedEmployeeId(null);
+        cancelEditing();
       }
 
       setSuccess(
-        `"${employee.name}" was deleted successfully.`
+        `${getEmployeeName(
+          employee
+        )} was deleted successfully.`
       );
 
-      await fetchData();
+      await fetchEmployees();
     } catch (err) {
       console.error(
-        'Delete employee error:',
+        'Error deleting employee:',
         err
       );
 
-      setError(
-        getReadableError(err)
-      );
+      if (err instanceof Error) {
+        setError(
+          `Unable to delete employee: ${err.message}`
+        );
+      } else {
+        setError(
+          'Unable to delete employee.'
+        );
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
+  // =========================
+  // EMPLOYEE NAME
+  // =========================
+
+  const getEmployeeName = (
+    employee: Employee
+  ) => {
+    const fullName =
+      `${employee.first_name || ''} ${
+        employee.last_name || ''
+      }`.trim();
+
+    if (fullName) {
+      return fullName;
+    }
+
+    if (employee.name) {
+      return employee.name;
+    }
+
+    return employee.email;
+  };
+
+  // =========================
+  // DEPARTMENTS
+  // =========================
+
+  const departments = useMemo(() => {
+    return Array.from(
+      new Set(
+        employees
+          .map(
+            (employee) =>
+              employee.department
+          )
+          .filter(
+            (
+              department
+            ): department is string =>
+              Boolean(department)
+          )
+      )
+    ).sort();
+  }, [employees]);
+
+  // =========================
+  // FILTER EMPLOYEES
+  // =========================
+
+  const filteredEmployees =
+    employees.filter(
+      (employee) => {
+        const searchTerm =
+          search.toLowerCase().trim();
+
+        const employeeName =
+          getEmployeeName(
+            employee
+          ).toLowerCase();
+
+        const matchesSearch =
+          !searchTerm ||
+          employeeName.includes(
+            searchTerm
+          ) ||
+          employee.email
+            .toLowerCase()
+            .includes(
+              searchTerm
+            ) ||
+          (
+            employee.employee_code ||
+            ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            ) ||
+          (
+            employee.phone ||
+            ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            ) ||
+          (
+            employee.department ||
+            ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            ) ||
+          (
+            employee.position ||
+            ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            );
+
+        const matchesRole =
+          !roleFilter ||
+          String(
+            employee.role_id
+          ) === roleFilter;
+
+        const matchesDepartment =
+          !departmentFilter ||
+          employee.department ===
+            departmentFilter;
+
+        const matchesStatus =
+          !statusFilter ||
+          employee.status ===
+            statusFilter;
+
+        return (
+          matchesSearch &&
+          matchesRole &&
+          matchesDepartment &&
+          matchesStatus
+        );
+      }
+    );
+
+  // =========================
+  // MANAGERS
+  // =========================
+
+  const managers = employees.filter(
+    (employee) => {
+      const roleName =
+        employee.role
+          ?.toLowerCase()
+          .trim();
+
+      return (
+        roleName === 'admin' ||
+        roleName === 'manager' ||
+        roleName ===
+          'supervisor'
+      );
+    }
+  );
+
+  // =========================
+  // FORM INPUT CLASS
+  // =========================
+
+  const inputClass =
+    'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  // =========================
+  // PAGE
+  // =========================
+
   return (
     <div className="min-h-screen bg-gray-100">
+
+      {/* HEADER */}
+
       <header className="bg-white shadow">
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
               Manage Employees
             </h1>
+
             <p className="text-sm text-gray-500 mt-1">
-              Manage employee information and login account links
+              Manage employee information,
+              roles and status
             </p>
           </div>
 
           <button
             type="button"
             onClick={onBack}
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition font-medium cursor-pointer"
+            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 transition font-medium cursor-pointer"
           >
             ← Back to Dashboard
           </button>
+
         </div>
+
       </header>
+
+      {/* MAIN */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
-        {/* ADD EMPLOYEE */}
-        {canManageEmployees && (
-          <div className="mb-6">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddForm(
-                    (current) => !current
-                  );
-                  setError('');
-                  setSuccess('');
-                }}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold cursor-pointer shadow-sm"
-              >
-                {showAddForm
-                  ? 'Cancel'
-                  : '+ Add Employee'}
-              </button>
-            </div>
+        {/* SUMMARY */}
 
-            {showAddForm && (
-              <form
-                onSubmit={handleAddEmployee}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-4"
-              >
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-800">
-                      Add New Employee
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Create the employee profile before linking a login account.
-                    </p>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newEmployeeName}
-                      onChange={(event) =>
-                        setNewEmployeeName(
-                          event.target.value
-                        )
-                      }
-                      className={inputClass}
-                      placeholder="Employee full name"
-                      required
-                    />
-                  </div>
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <p className="text-sm text-gray-500">
+              Total Employees
+            </p>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={newEmployeeEmail}
-                      onChange={(event) =>
-                        setNewEmployeeEmail(
-                          event.target.value
-                        )
-                      }
-                      className={inputClass}
-                      placeholder="employee@company.com"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Role
-                    </label>
-                    <select
-                      value={newEmployeeRole}
-                      onChange={(event) =>
-                        setNewEmployeeRole(
-                          event.target.value
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      <option value="Employee">
-                        Employee
-                      </option>
-                      <option value="Manager">
-                        Manager
-                      </option>
-                      <option value="Admin">
-                        Admin
-                      </option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={newEmployeeStatus}
-                      onChange={(event) =>
-                        setNewEmployeeStatus(
-                          event.target.value
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      <option value="Active">
-                        Active
-                      </option>
-                      <option value="Inactive">
-                        Inactive
-                      </option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold cursor-pointer"
-                  >
-                    Add Employee
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowAddForm(false)
-                    }
-                    className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+            <p className="text-3xl font-bold text-gray-800 mt-1">
+              {employees.length}
+            </p>
           </div>
-        )}
 
-        {error && (
-          <div className="bg-red-100 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
-            {error}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <p className="text-sm text-gray-500">
+              Active Employees
+            </p>
+
+            <p className="text-3xl font-bold text-green-600 mt-1">
+              {
+                employees.filter(
+                  (employee) =>
+                    employee.status
+                      ?.toLowerCase() ===
+                    'active'
+                ).length
+              }
+            </p>
           </div>
-        )}
+
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <p className="text-sm text-gray-500">
+              Showing
+            </p>
+
+            <p className="text-3xl font-bold text-blue-600 mt-1">
+              {filteredEmployees.length}
+            </p>
+          </div>
+
+        </div>
+
+        {/* SEARCH / FILTERS */}
+
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            <input
+              type="text"
+              placeholder="Search name, ID, email..."
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              className={inputClass}
+            />
+
+            <select
+              value={roleFilter}
+              onChange={(e) =>
+                setRoleFilter(
+                  e.target.value
+                )
+              }
+              className={inputClass}
+            >
+              <option value="">
+                All Roles
+              </option>
+
+              {roles.map((role) => (
+                <option
+                  key={role.id}
+                  value={role.id}
+                >
+                  {role.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={
+                departmentFilter
+              }
+              onChange={(e) =>
+                setDepartmentFilter(
+                  e.target.value
+                )
+              }
+              className={inputClass}
+            >
+              <option value="">
+                All Departments
+              </option>
+
+              {departments.map(
+                (department) => (
+                  <option
+                    key={department}
+                    value={department}
+                  >
+                    {department}
+                  </option>
+                )
+              )}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value
+                )
+              }
+              className={inputClass}
+            >
+              <option value="">
+                All Statuses
+              </option>
+
+              <option value="Active">
+                Active
+              </option>
+
+              <option value="Inactive">
+                Inactive
+              </option>
+            </select>
+
+          </div>
+
+          {(search ||
+            roleFilter ||
+            departmentFilter ||
+            statusFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setRoleFilter('');
+                setDepartmentFilter('');
+                setStatusFilter('');
+              }}
+              className="mt-4 text-sm text-blue-600 hover:underline cursor-pointer"
+            >
+              Clear all filters
+            </button>
+          )}
+
+        </div>
+
+        {/* ADD BUTTON */}
+
+        <div className="flex justify-end mb-6">
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowAddForm(
+                !showAddForm
+              );
+
+              setEditingEmployee(null);
+              setError('');
+              setSuccess('');
+            }}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold cursor-pointer"
+          >
+            {showAddForm
+              ? 'Cancel'
+              : '+ Add Employee'}
+          </button>
+
+        </div>
+
+        {/* SUCCESS */}
 
         {success && (
           <div className="bg-green-100 border border-green-200 text-green-700 rounded-lg p-4 mb-6">
@@ -899,173 +1109,901 @@ export default function Employees({
           </div>
         )}
 
-        {linkingEmployee && (
-          <section className="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4 border-emerald-600">
-            <div className="flex justify-between gap-4 mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">
-                  Link Login Account
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Linking account for{' '}
-                  <span className="font-semibold">
-                    {linkingEmployee.name}
-                  </span>
-                  .
-                </p>
-              </div>
+        {/* ERROR */}
 
-              <button
-                type="button"
-                onClick={closeLinkAccount}
-                disabled={linking}
-                className="text-gray-500 hover:text-gray-800 font-semibold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-sm bg-blue-50 border border-blue-100 text-blue-800 rounded-lg p-4 mb-4">
-              Enter the email the employee uses to sign in. This links an existing
-              Supabase Auth account; it does not create a new account.
-            </p>
-
-            <form
-              onSubmit={handleLinkAccount}
-              className="flex flex-col sm:flex-row gap-3"
-            >
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(event) =>
-                  setLoginEmail(
-                    event.target.value
-                  )
-                }
-                placeholder="employee@login.com"
-                className={`${inputClass} flex-1`}
-                required
-                autoFocus
-              />
-
-              <button
-                type="submit"
-                disabled={linking}
-                className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition font-semibold disabled:opacity-50 cursor-pointer"
-              >
-                {linking
-                  ? 'Linking...'
-                  : '🔗 Link Account'}
-              </button>
-
-              <button
-                type="button"
-                onClick={closeLinkAccount}
-                disabled={linking}
-                className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
-            </form>
-          </section>
+        {error && (
+          <div className="bg-red-100 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
+            {error}
+          </div>
         )}
 
-        <section className="bg-white rounded-xl shadow-sm p-5 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">
-                Employee Directory
+        {/* ========================= */}
+        {/* ADD FORM */}
+        {/* ========================= */}
+
+        {canAddEmployee &&
+          showAddForm &&
+          !editingEmployee && (
+            <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+
+              <h2 className="text-xl font-bold text-gray-800 mb-6">
+                Add New Employee
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {filteredEmployees.length} employee
-                {filteredEmployees.length === 1
-                  ? ''
-                  : 's'}
-              </p>
+
+              <form
+                onSubmit={
+                  handleAddEmployee
+                }
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+              >
+
+                {/* EMPLOYEE ID */}
+
+                <div>
+                  <label className="label">
+                    Employee ID *
+                  </label>
+
+                  <input
+                    value={
+                      employeeCode
+                    }
+                    onChange={(e) =>
+                      setEmployeeCode(
+                        e.target.value
+                      )
+                    }
+                    placeholder="EMP-001"
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* FIRST NAME */}
+
+                <div>
+                  <label className="label">
+                    First Name *
+                  </label>
+
+                  <input
+                    value={firstName}
+                    onChange={(e) =>
+                      setFirstName(
+                        e.target.value
+                      )
+                    }
+                    placeholder="First name"
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* LAST NAME */}
+
+                <div>
+                  <label className="label">
+                    Last Name *
+                  </label>
+
+                  <input
+                    value={lastName}
+                    onChange={(e) =>
+                      setLastName(
+                        e.target.value
+                      )
+                    }
+                    placeholder="Last name"
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* EMAIL */}
+
+                <div>
+                  <label className="label">
+                    Email *
+                  </label>
+
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) =>
+                      setEmail(
+                        e.target.value
+                      )
+                    }
+                    placeholder="employee@company.com"
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* PHONE */}
+
+                <div>
+                  <label className="label">
+                    Phone
+                  </label>
+
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) =>
+                      setPhone(
+                        e.target.value
+                      )
+                    }
+                    placeholder="Phone number"
+                    className={
+                      inputClass
+                    }
+                  />
+                </div>
+
+                {/* DEPARTMENT */}
+
+                <div>
+                  <label className="label">
+                    Department *
+                  </label>
+
+                  <input
+                    value={
+                      department
+                    }
+                    onChange={(e) =>
+                      setDepartment(
+                        e.target.value
+                      )
+                    }
+                    placeholder="Sales, HR..."
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* POSITION */}
+
+                <div>
+                  <label className="label">
+                    Position *
+                  </label>
+
+                  <input
+                    value={
+                      position
+                    }
+                    onChange={(e) =>
+                      setPosition(
+                        e.target.value
+                      )
+                    }
+                    placeholder="Sales Associate"
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* HIRE DATE */}
+
+                <div>
+                  <label className="label">
+                    Hire Date *
+                  </label>
+
+                  <input
+                    type="date"
+                    value={
+                      hireDate
+                    }
+                    onChange={(e) =>
+                      setHireDate(
+                        e.target.value
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
+                    required
+                  />
+                </div>
+
+                {/* ROLE */}
+
+                <div>
+                  <label className="label">
+                    Role *
+                  </label>
+
+                  <select
+                    value={roleId}
+                    onChange={(e) =>
+                      setRoleId(
+                        e.target.value
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
+                    required
+                  >
+                    <option value="">
+                      Select role
+                    </option>
+
+                    {roles.map(
+                      (role) => (
+                        <option
+                          key={role.id}
+                          value={role.id}
+                        >
+                          {role.name}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                {/* MANAGER */}
+
+                <div>
+                  <label className="label">
+                    Manager
+                  </label>
+
+                  <select
+                    value={
+                      managerId
+                    }
+                    onChange={(e) =>
+                      setManagerId(
+                        e.target.value
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
+                  >
+                    <option value="">
+                      No manager
+                    </option>
+
+                    {managers.map(
+                      (manager) => (
+                        <option
+                          key={
+                            manager.id
+                          }
+                          value={
+                            manager.id
+                          }
+                        >
+                          {getEmployeeName(
+                            manager
+                          )}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                {/* PHOTO URL */}
+
+                <div>
+                  <label className="label">
+                    Profile Photo URL
+                  </label>
+
+                  <input
+                    type="url"
+                    value={
+                      profilePhotoUrl
+                    }
+                    onChange={(e) =>
+                      setProfilePhotoUrl(
+                        e.target.value
+                      )
+                    }
+                    placeholder="https://..."
+                    className={
+                      inputClass
+                    }
+                  />
+                </div>
+
+                {/* STATUS */}
+
+                <div>
+                  <label className="label">
+                    Status *
+                  </label>
+
+                  <select
+                    value={status}
+                    onChange={(e) =>
+                      setStatus(
+                        e.target.value
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
+                  >
+                    <option value="Active">
+                      Active
+                    </option>
+
+                    <option value="Inactive">
+                      Inactive
+                    </option>
+                  </select>
+                </div>
+
+                {/* SAVE */}
+
+                <div className="md:col-span-2 lg:col-span-3 flex gap-3 pt-2">
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 cursor-pointer"
+                  >
+                    {saving
+                      ? 'Saving...'
+                      : 'Save Employee'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetAddForm();
+                      setShowAddForm(
+                        false
+                      );
+                    }}
+                    className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                </div>
+
+              </form>
+
+            </div>
+          )}
+
+        {/* ========================= */}
+        {/* EDIT FORM */}
+        {/* ========================= */}
+
+        {editingEmployee && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border-l-4 border-blue-600">
+
+            <div className="flex flex-col sm:flex-row gap-2 justify-between mb-6">
+
+              <h2 className="text-xl font-bold text-gray-800">
+                Edit Employee
+              </h2>
+
+              <span className="text-sm text-gray-500">
+                Database ID:{" "}
+                {editingEmployee.id}
+              </span>
+
             </div>
 
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+            <form
+              onSubmit={
+                handleUpdateEmployee
               }
-              placeholder="Search name, ID, email..."
-              className={`${inputClass} sm:max-w-sm`}
-            />
-          </div>
-        </section>
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+            >
 
-        {loading ? (
-          <div className="bg-white rounded-xl shadow-sm p-10 text-center">
-            Loading employees...
+              {/* EMPLOYEE ID */}
+
+              <div>
+                <label className="label">
+                  Employee ID *
+                </label>
+
+                <input
+                  value={
+                    editEmployeeCode
+                  }
+                  onChange={(e) =>
+                    setEditEmployeeCode(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* FIRST NAME */}
+
+              <div>
+                <label className="label">
+                  First Name *
+                </label>
+
+                <input
+                  value={
+                    editFirstName
+                  }
+                  onChange={(e) =>
+                    setEditFirstName(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* LAST NAME */}
+
+              <div>
+                <label className="label">
+                  Last Name *
+                </label>
+
+                <input
+                  value={
+                    editLastName
+                  }
+                  onChange={(e) =>
+                    setEditLastName(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* EMAIL */}
+
+              <div>
+                <label className="label">
+                  Email *
+                </label>
+
+                <input
+                  type="email"
+                  value={
+                    editEmail
+                  }
+                  onChange={(e) =>
+                    setEditEmail(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* PHONE */}
+
+              <div>
+                <label className="label">
+                  Phone
+                </label>
+
+                <input
+                  type="tel"
+                  value={
+                    editPhone
+                  }
+                  onChange={(e) =>
+                    setEditPhone(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                />
+              </div>
+
+              {/* DEPARTMENT */}
+
+              <div>
+                <label className="label">
+                  Department *
+                </label>
+
+                <input
+                  value={
+                    editDepartment
+                  }
+                  onChange={(e) =>
+                    setEditDepartment(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* POSITION */}
+
+              <div>
+                <label className="label">
+                  Position *
+                </label>
+
+                <input
+                  value={
+                    editPosition
+                  }
+                  onChange={(e) =>
+                    setEditPosition(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* HIRE DATE */}
+
+              <div>
+                <label className="label">
+                  Hire Date *
+                </label>
+
+                <input
+                  type="date"
+                  value={
+                    editHireDate
+                  }
+                  onChange={(e) =>
+                    setEditHireDate(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                />
+              </div>
+
+              {/* ROLE */}
+
+              <div>
+                <label className="label">
+                  Role *
+                </label>
+
+                <select
+                  value={
+                    editRoleId
+                  }
+                  onChange={(e) =>
+                    setEditRoleId(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                  required
+                >
+                  <option value="">
+                    Select role
+                  </option>
+
+                  {roles.map(
+                    (role) => (
+                      <option
+                        key={role.id}
+                        value={role.id}
+                      >
+                        {role.name}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              {/* MANAGER */}
+
+              <div>
+                <label className="label">
+                  Manager
+                </label>
+
+                <select
+                  value={
+                    editManagerId
+                  }
+                  onChange={(e) =>
+                    setEditManagerId(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                >
+                  <option value="">
+                    No manager
+                  </option>
+
+                  {managers
+                    .filter(
+                      (manager) =>
+                        manager.id !==
+                        editingEmployee.id
+                    )
+                    .map(
+                      (manager) => (
+                        <option
+                          key={
+                            manager.id
+                          }
+                          value={
+                            manager.id
+                          }
+                        >
+                          {getEmployeeName(
+                            manager
+                          )}
+                        </option>
+                      )
+                    )}
+                </select>
+              </div>
+
+              {/* PHOTO URL */}
+
+              <div>
+                <label className="label">
+                  Profile Photo URL
+                </label>
+
+                <input
+                  type="url"
+                  value={
+                    editProfilePhotoUrl
+                  }
+                  onChange={(e) =>
+                    setEditProfilePhotoUrl(
+                      e.target.value
+                    )
+                  }
+                  placeholder="https://..."
+                  className={
+                    inputClass
+                  }
+                />
+              </div>
+
+              {/* STATUS */}
+
+              <div>
+                <label className="label">
+                  Status *
+                </label>
+
+                <select
+                  value={
+                    editStatus
+                  }
+                  onChange={(e) =>
+                    setEditStatus(
+                      e.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                >
+                  <option value="Active">
+                    Active
+                  </option>
+
+                  <option value="Inactive">
+                    Inactive
+                  </option>
+                </select>
+              </div>
+
+              {/* BUTTONS */}
+
+              <div className="md:col-span-2 lg:col-span-3 flex gap-3 pt-2">
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  {saving
+                    ? 'Updating...'
+                    : 'Save Changes'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelEditing
+                  }
+                  disabled={saving}
+                  className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+              </div>
+
+            </form>
+
           </div>
-        ) : (
+        )}
+
+        {/* ========================= */}
+        {/* LOADING */}
+        {/* ========================= */}
+
+        {loading && (
+          <div className="bg-white rounded-xl shadow-sm p-10 text-center">
+
+            <p className="text-gray-600">
+              Loading employees...
+            </p>
+
+          </div>
+        )}
+
+        {/* ========================= */}
+        {/* TABLE */}
+        {/* ========================= */}
+
+        {!loading && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+
+              <table className="w-full min-w-[1000px]">
+
                 <thead className="bg-gray-50">
+
                   <tr>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
-                      Employee
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
+                      Employee Name
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
                       Employee ID
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
                       Role
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
                       Department
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
-                      Email
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
+                      Position
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
+                      Email Address
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
                       Status
                     </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
-                      Login Account
-                    </th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold">
+
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700 whitespace-nowrap">
                       Actions
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody className="divide-y divide-gray-200">
+
                   {filteredEmployees.map(
                     (employee) => (
                       <tr
-                        key={employee.id}
-                        className={`hover:bg-gray-50 ${
-                          selectedEmployeeId ===
+                        key={
                           employee.id
-                            ? 'bg-blue-50'
-                            : ''
-                        }`}
-                        onClick={() =>
-                          setSelectedEmployeeId(
-                            employee.id
-                          )
                         }
+                        className="hover:bg-gray-50"
                       >
+
+                        {/* EMPLOYEE */}
+
                         <td className="px-5 py-4">
-                          <p className="font-semibold text-gray-800">
-                            {employee.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {employee.phone ||
-                              'No phone'}
-                          </p>
+
+                          <div className="flex items-center gap-3">
+
+                            {employee.profile_photo_url ? (
+                              <img
+                                src={
+                                  employee.profile_photo_url
+                                }
+                                alt={
+                                  getEmployeeName(
+                                    employee
+                                  )
+                                }
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                                {getEmployeeName(
+                                  employee
+                                )
+                                  .charAt(
+                                    0
+                                  )
+                                  .toUpperCase()}
+                              </div>
+                            )}
+
+                            <div>
+                              <p className="font-semibold text-gray-800">
+                                {getEmployeeName(
+                                  employee
+                                )}
+                              </p>
+
+                              <p className="text-xs text-gray-500">
+                                {employee.phone ||
+                                  'No phone'}
+                              </p>
+                            </div>
+
+                          </div>
+
                         </td>
+
+                        {/* ID */}
 
                         <td className="px-5 py-4 text-sm text-gray-600">
                           {employee.employee_code ||
                             '—'}
                         </td>
+
+                        {/* ROLE */}
 
                         <td className="px-5 py-4 text-sm text-gray-600">
                           {employee.role ||
@@ -1077,16 +2015,30 @@ export default function Employees({
                             'Not assigned'}
                         </td>
 
+                        {/* DEPARTMENT */}
+
                         <td className="px-5 py-4 text-sm text-gray-600">
                           {employee.department ||
                             '—'}
                         </td>
 
+                        {/* POSITION */}
+
+                        <td className="px-5 py-4 text-sm text-gray-600">
+                          {employee.position ||
+                            '—'}
+                        </td>
+
+                        {/* EMAIL */}
+
                         <td className="px-5 py-4 text-sm text-gray-600">
                           {employee.email}
                         </td>
 
+                        {/* STATUS */}
+
                         <td className="px-5 py-4">
+
                           <span
                             className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
                               employee.status
@@ -1098,356 +2050,94 @@ export default function Employees({
                           >
                             {employee.status}
                           </span>
+
                         </td>
 
-                        <td className="px-5 py-4">
-                          {employee.user_id ? (
-                            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                              Linked
-                            </span>
-                          ) : (
-                            <div>
-                              <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                Not linked
-                              </span>
-
-                              {currentRole ===
-                                'admin' && (
-                                <button
-                                  type="button"
-                                  onClick={(
-                                    event
-                                  ) => {
-                                    event.stopPropagation();
-                                    openLinkAccount(
-                                      employee
-                                    );
-                                  }}
-                                  className="block mt-2 text-sm text-emerald-700 hover:underline font-semibold cursor-pointer"
-                                >
-                                  🔗 Link account
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </td>
+                        {/* ACTIONS */}
 
                         <td className="px-5 py-4">
-                          {canManageEmployees ? (
-                            <div className="flex flex-wrap gap-2">
+
+                          <div className="flex gap-2">
+
+                            {canEditEmployee && (
                               <button
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openEditEmployee(employee);
-                                }}
-                                className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
+                                onClick={() =>
+                                  startEditing(employee)
+                                }
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold cursor-pointer"
                               >
                                 ✏️ Edit
                               </button>
+                            )}
 
+                            {canDeleteEmployee && (
                               <button
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDeleteEmployee(employee);
-                                }}
-                                className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition font-semibold cursor-pointer"
+                                onClick={() =>
+                                  handleDeleteEmployee(employee)
+                                }
+                                disabled={saving}
+                                className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition font-semibold cursor-pointer disabled:opacity-50"
                               >
                                 🗑️ Delete
                               </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-gray-400">
-                              🔒 View only
-                            </span>
-                          )}
+                            )}
+
+                            {!canEditEmployee &&
+                              !canDeleteEmployee && (
+                                <span className="text-xs font-medium text-gray-400">
+                                  View only
+                                </span>
+                            )}
+
+                          </div>
+
                         </td>
+
                       </tr>
                     )
                   )}
+
                 </tbody>
+
               </table>
+
             </div>
 
             {filteredEmployees.length ===
               0 && (
-              <div className="p-12 text-center text-gray-500">
-                No employees found.
+              <div className="p-12 text-center">
+
+                <p className="text-gray-600 font-medium">
+                  No employees found.
+                </p>
+
+                <p className="text-sm text-gray-400 mt-1">
+                  Try changing your search
+                  or filters.
+                </p>
+
               </div>
             )}
+
           </div>
         )}
 
-        {editingEmployee && (
-          <section className="fixed inset-0 z-50 bg-black/40 p-4 overflow-y-auto">
-            <div className="max-w-5xl mx-auto mt-8 bg-white rounded-2xl shadow-xl p-6">
-              <div className="flex items-start justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Edit Employee
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Update employee information and account settings.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeEditEmployee}
-                  className="text-gray-500 hover:text-gray-800 text-xl font-bold cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form
-                onSubmit={handleUpdateEmployee}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee ID *
-                  </label>
-                  <input
-                    value={editEmployeeCode}
-                    onChange={(e) =>
-                      setEditEmployeeCode(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name *
-                  </label>
-                  <input
-                    value={editFirstName}
-                    onChange={(e) =>
-                      setEditFirstName(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name *
-                  </label>
-                  <input
-                    value={editLastName}
-                    onChange={(e) =>
-                      setEditLastName(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) =>
-                      setEditEmail(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    value={editPhone}
-                    onChange={(e) =>
-                      setEditPhone(e.target.value)
-                    }
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Department *
-                  </label>
-                  <input
-                    value={editDepartment}
-                    onChange={(e) =>
-                      setEditDepartment(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Position *
-                  </label>
-                  <input
-                    value={editPosition}
-                    onChange={(e) =>
-                      setEditPosition(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hire Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={editHireDate}
-                    onChange={(e) =>
-                      setEditHireDate(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role *
-                  </label>
-                  <select
-                    value={editRoleId}
-                    onChange={(e) =>
-                      setEditRoleId(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  >
-                    <option value="">
-                      Select role
-                    </option>
-                    {roles.map((role) => (
-                      <option
-                        key={role.id}
-                        value={role.id}
-                      >
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Manager
-                  </label>
-                  <select
-                    value={editManagerId}
-                    onChange={(e) =>
-                      setEditManagerId(e.target.value)
-                    }
-                    className={inputClass}
-                  >
-                    <option value="">
-                      No manager
-                    </option>
-                    {employees
-                      .filter(
-                        (employee) =>
-                          employee.id !==
-                          editingEmployee.id
-                      )
-                      .map((employee) => (
-                        <option
-                          key={employee.id}
-                          value={employee.id}
-                        >
-                          {employee.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status *
-                  </label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) =>
-                      setEditStatus(e.target.value)
-                    }
-                    className={inputClass}
-                    required
-                  >
-                    <option value="Active">
-                      Active
-                    </option>
-                    <option value="Inactive">
-                      Inactive
-                    </option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Profile Photo URL
-                  </label>
-                  <input
-                    value={editProfilePhotoUrl}
-                    onChange={(e) =>
-                      setEditProfilePhotoUrl(
-                        e.target.value
-                      )
-                    }
-                    className={inputClass}
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={savingEmployee}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 cursor-pointer"
-                  >
-                    {savingEmployee
-                      ? 'Saving...'
-                      : 'Save Changes'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={closeEditEmployee}
-                    disabled={savingEmployee}
-                    className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </section>
-        )}
-
-        {selectedEmployee && (
-          <div className="mt-6 bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-800">
-              Selected Employee
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {selectedEmployee.name} ·{' '}
-              {selectedEmployee.email}
-            </p>
-          </div>
-        )}
       </main>
+
+      {/* SMALL LABEL STYLE */}
+
+      <style jsx>{`
+        .label {
+          display: block;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+          margin-bottom: 0.5rem;
+        }
+      `}</style>
+
     </div>
   );
 }

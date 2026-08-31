@@ -320,6 +320,28 @@ export default function Products({
       setError('');
       setSuccess('');
 
+      // Check whether this product is referenced by sales.
+      const {
+        count: salesCount,
+        error: salesCheckError,
+      } = await supabase
+        .from('sales')
+        .select('id', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('product_id', product.id);
+
+      if (salesCheckError) {
+        throw salesCheckError;
+      }
+
+      if ((salesCount || 0) > 0) {
+        throw new Error(
+          `This product cannot be deleted because it has ${salesCount} recorded sale${salesCount === 1 ? '' : 's'}. Keep it to preserve sales history.`
+        );
+      }
+
       const { error } =
         await supabase
           .from('products')
@@ -327,21 +349,7 @@ export default function Products({
           .eq('id', product.id);
 
       if (error) {
-        console.error(
-          'SUPABASE DELETE PRODUCT ERROR:',
-          JSON.stringify(
-            error,
-            Object.getOwnPropertyNames(error),
-            2
-          )
-        );
-
-        throw new Error(
-          error.message ||
-            error.details ||
-            error.hint ||
-            'Supabase rejected the product deletion.'
-        );
+        throw error;
       }
 
       if (
@@ -357,25 +365,15 @@ export default function Products({
 
       await fetchProducts();
     } catch (err) {
-      const readableError =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'object' &&
-            err !== null
-          ? JSON.stringify(
-              err,
-              Object.getOwnPropertyNames(err),
-              2
-            )
-          : String(err);
-
       console.error(
         'Error deleting product:',
-        readableError
+        err
       );
 
       setError(
-        `Unable to delete product: ${readableError}`
+        err instanceof Error
+          ? `Unable to delete product: ${err.message}`
+          : 'Unable to delete product.'
       );
     } finally {
       setSaving(false);
