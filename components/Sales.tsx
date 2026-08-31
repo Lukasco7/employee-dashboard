@@ -1039,7 +1039,7 @@ export default function Sales({
         <section className="bg-white rounded-lg shadow-sm p-5 lg:sticky lg:top-4">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">
+              <h2 className="text-base font-semibold text-gray-800">
                 Digital Change Calculator
               </h2>
               <p className="text-sm text-gray-500 mt-1">
@@ -1050,17 +1050,17 @@ export default function Sales({
             <button
               type="button"
               onClick={clearCalculator}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
+              className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
             >
               Clear
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             <button
               type="button"
               onClick={() => setCalculatorField('due')}
-              className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
+              className={`rounded-xl border-2 p-3 text-left transition cursor-pointer ${
                 calculatorField === 'due'
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 bg-white hover:bg-gray-50'
@@ -1069,7 +1069,7 @@ export default function Sales({
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Amount Due
               </p>
-              <p className="text-xl font-extrabold text-gray-900 mt-1">
+              <p className="text-lg font-extrabold text-gray-900 mt-1">
                 {formatMoney(validAmountDue ? parsedAmountDue : 0)}
               </p>
             </button>
@@ -1077,7 +1077,7 @@ export default function Sales({
             <button
               type="button"
               onClick={() => setCalculatorField('received')}
-              className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
+              className={`rounded-xl border-2 p-3 text-left transition cursor-pointer ${
                 calculatorField === 'received'
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-200 bg-white hover:bg-gray-50'
@@ -1086,7 +1086,7 @@ export default function Sales({
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Amount Received
               </p>
-              <p className="text-xl font-extrabold text-gray-900 mt-1">
+              <p className="text-lg font-extrabold text-gray-900 mt-1">
                 {formatMoney(validAmountReceived ? parsedAmountReceived : 0)}
               </p>
             </button>
@@ -1099,7 +1099,7 @@ export default function Sales({
                 : 'Entering Amount Received'}
             </p>
             <div
-              className="mt-2 min-h-14 px-4 py-3 rounded-xl bg-gray-800 text-white text-3xl font-extrabold text-right overflow-x-auto"
+              className="mt-2 min-h-11 px-3 py-2 rounded-xl bg-gray-800 text-white text-2xl font-extrabold text-right overflow-x-auto"
               aria-live="polite"
             >
               {calculatorField === 'due'
@@ -1112,19 +1112,19 @@ export default function Sales({
             type="button"
             onClick={useSaleAmountForCalculator}
             disabled={!selectedProduct || saleQuantity <= 0}
-            className="w-full mb-4 bg-blue-100 text-blue-700 px-4 py-3 rounded-xl hover:bg-blue-200 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full mb-3 bg-blue-100 text-blue-700 px-3 py-2.5 rounded-xl hover:bg-blue-200 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Use Current Sale Amount
           </button>
 
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-3 gap-1.5 mb-3">
             {['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(
               (digit) => (
                 <button
                   key={digit}
                   type="button"
                   onClick={() => appendCalculatorDigit(digit)}
-                  className="min-h-14 rounded-xl bg-gray-100 border border-gray-200 text-xl font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
+                  className="min-h-11 rounded-xl bg-gray-100 border border-gray-200 text-lg font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
                 >
                   {digit}
                 </button>
@@ -1134,19 +1134,19 @@ export default function Sales({
             <button
               type="button"
               onClick={deleteCalculatorDigit}
-              className="min-h-14 rounded-xl bg-orange-100 border border-orange-200 text-lg font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
+              className="min-h-11 rounded-xl bg-orange-100 border border-orange-200 text-base font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
             >
               ⌫
             </button>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 mb-3">
             <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
               Change Due
             </p>
 
             <p
-              className={`text-4xl font-extrabold mt-2 ${
+              className={`text-3xl font-extrabold mt-2 ${
                 customerHasPaidEnough
                   ? 'text-green-700'
                   : validAmountDue && validAmountReceived
@@ -1160,15 +1160,15 @@ export default function Sales({
             {validAmountDue &&
               validAmountReceived &&
               !customerHasPaidEnough && (
-                <p className="text-sm font-semibold text-red-700 mt-2">
+                <p className="text-xs font-semibold text-red-700 mt-1">
                   Customer still owes {formatMoney(Math.abs(changeDue))}.
                 </p>
               )}
           </div>
 
           {customerHasPaidEnough && changeDue > 0 && (
-            <div className="rounded-xl bg-white border border-gray-200 p-4">
-              <p className="text-sm font-bold text-gray-700 mb-3">
+            <div className="rounded-xl bg-white border border-gray-200 p-3">
+              <p className="text-xs font-bold text-gray-700 mb-2">
                 Suggested Change Breakdown
               </p>
 
@@ -1176,7 +1176,7 @@ export default function Sales({
                 {getChangeBreakdown(changeDue).map((item) => (
                   <span
                     key={`${item.amount}-${item.count}`}
-                    className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800"
+                    className="px-2.5 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-800"
                   >
                     {item.count} × {calculatorCurrency} {item.amount.toFixed(2)}
                   </span>
@@ -1186,7 +1186,7 @@ export default function Sales({
           )}
 
           {customerHasPaidEnough && changeDue === 0 && (
-            <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+            <div className="rounded-xl bg-green-50 border border-green-200 p-3">
               <p className="text-sm font-semibold text-green-800">
                 Exact payment — no change required.
               </p>
@@ -1224,27 +1224,27 @@ export default function Sales({
 
                   <tr>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Product
                     </th>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Category
                     </th>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Quantity
                     </th>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Amount
                     </th>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Date
                     </th>
 
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-800">
                       Action
                     </th>
 
@@ -1422,127 +1422,128 @@ export default function Sales({
         </div>
       )}
 
+
       </main>
 
-      <style jsx global>{`
+    <style jsx global>{`
+      .print-receipt {
+        display: none;
+      }
+
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 4mm;
+        }
+
+        body {
+          margin: 0;
+          background: white !important;
+        }
+
+        body * {
+          visibility: hidden !important;
+        }
+
+        .print-receipt,
+        .print-receipt * {
+          visibility: visible !important;
+        }
+
         .print-receipt {
-          display: none;
+          display: block !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
         }
 
-        @media print {
-          @page {
-            size: 80mm auto;
-            margin: 4mm;
-          }
-
-          body {
-            margin: 0;
-            background: white !important;
-          }
-
-          body * {
-            visibility: hidden !important;
-          }
-
-          .print-receipt,
-          .print-receipt * {
-            visibility: visible !important;
-          }
-
-          .print-receipt {
-            display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-
-          .receipt-paper {
-            width: 72mm;
-            margin: 0 auto;
-            font-family: Arial, Helvetica, sans-serif;
-            color: #111;
-            font-size: 12px;
-            line-height: 1.35;
-          }
-
-          .receipt-paper h1 {
-            margin: 0;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 800;
-          }
-
-          .receipt-title {
-            margin: 2px 0 8px;
-            text-align: center;
-            font-size: 11px;
-            font-weight: 700;
-          }
-
-          .receipt-divider {
-            border-top: 1px dashed #111;
-            margin: 8px 0;
-          }
-
-          .receipt-meta {
-            display: grid;
-            gap: 4px;
-          }
-
-          .receipt-meta div,
-          .receipt-line,
-          .receipt-total,
-          .receipt-item {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-          }
-
-          .receipt-meta span,
-          .receipt-line span {
-            color: #444;
-          }
-
-          .receipt-meta strong {
-            text-align: right;
-            max-width: 48mm;
-            overflow-wrap: anywhere;
-          }
-
-          .receipt-item {
-            align-items: flex-start;
-          }
-
-          .receipt-item-main {
-            display: grid;
-            gap: 2px;
-            max-width: 48mm;
-          }
-
-          .receipt-item-main span {
-            color: #444;
-          }
-
-          .receipt-total {
-            font-size: 14px;
-            font-weight: 800;
-          }
-
-          .receipt-thanks {
-            margin: 12px 0 4px;
-            text-align: center;
-            font-weight: 700;
-          }
-
-          .receipt-footer {
-            margin: 0;
-            text-align: center;
-            color: #555;
-            font-size: 10px;
-          }
+        .receipt-paper {
+          width: 72mm;
+          margin: 0 auto;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #111;
+          font-size: 12px;
+          line-height: 1.35;
         }
-      `}</style>
+
+        .receipt-paper h1 {
+          margin: 0;
+          text-align: center;
+          font-size: 20px;
+          font-weight: 800;
+        }
+
+        .receipt-title {
+          margin: 2px 0 8px;
+          text-align: center;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .receipt-divider {
+          border-top: 1px dashed #111;
+          margin: 8px 0;
+        }
+
+        .receipt-meta {
+          display: grid;
+          gap: 4px;
+        }
+
+        .receipt-meta div,
+        .receipt-line,
+        .receipt-total,
+        .receipt-item {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .receipt-meta span,
+        .receipt-line span {
+          color: #444;
+        }
+
+        .receipt-meta strong {
+          text-align: right;
+          max-width: 48mm;
+          overflow-wrap: anywhere;
+        }
+
+        .receipt-item {
+          align-items: flex-start;
+        }
+
+        .receipt-item-main {
+          display: grid;
+          gap: 2px;
+          max-width: 48mm;
+        }
+
+        .receipt-item-main span {
+          color: #444;
+        }
+
+        .receipt-total {
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        .receipt-thanks {
+          margin: 12px 0 4px;
+          text-align: center;
+          font-weight: 700;
+        }
+
+        .receipt-footer {
+          margin: 0;
+          text-align: center;
+          color: #555;
+          font-size: 10px;
+        }
+      }
+    `}</style>
 
     </div>
   );
