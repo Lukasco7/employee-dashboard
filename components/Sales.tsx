@@ -1053,7 +1053,7 @@ export default function Sales({
                 onClick={() => setCalculatorField('received')}
                 className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
                   calculatorField === 'received'
-                    ? 'border-green-200 bg-green-50'
+                    ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 bg-white hover:bg-gray-50'
                 }`}
               >
