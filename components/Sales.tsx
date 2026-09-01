@@ -890,8 +890,7 @@ export default function Sales({
           </div>
         )}
 
-        {/* SUMMARY */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch mb-5">
+        <div className="grid grid-cols-2 gap-5 items-stretch mb-5">
         {/* RECORD SALE */}
 
         <div className="bg-white rounded-lg shadow-sm p-5 h-full">
@@ -1018,7 +1017,7 @@ export default function Sales({
         {/* ========================= */}
         {/* CHANGE CALCULATOR */}
 
-        <section className="bg-white rounded-lg shadow-sm p-5 h-full lg:sticky lg:top-4">
+        <section className="bg-white rounded-lg shadow-sm p-5 h-full">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1182,7 +1181,7 @@ export default function Sales({
 
         {/* SALES SUMMARY - BELOW SALES + CALCULATOR */}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-2 gap-5 mb-5">
 
           <button
             type="button"
