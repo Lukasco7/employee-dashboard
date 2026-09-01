@@ -1021,13 +1021,6 @@ export default function Sales({
 
           <section className="bg-white rounded-lg shadow-sm p-5 min-w-0">
             <div className="flex items-center justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Digital Change Calculator
-                </h2>
-                
-              </div>
-
               <button
                 type="button"
                 onClick={clearCalculator}
@@ -1073,12 +1066,7 @@ export default function Sales({
               </button>
             </div>
 
-            <div className="rounded-2xl bg-gray-900 p-4 mb-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">
-                {calculatorField === 'due'
-                  ? 'Entering Amount Due'
-                  : 'Entering Amount Received'}
-              </p>
+            
               <div
                 className="mt-2 min-h-14 px-4 py-3 rounded-xl bg-gray-800 text-white text-3xl font-extrabold text-right overflow-x-auto"
                 aria-live="polite"
@@ -1086,7 +1074,7 @@ export default function Sales({
                 {calculatorField === 'due'
                   ? amountDue || '0.00'
                   : amountReceived || '0.00'}
-              </div>
+              
             </div>
 
             <button
