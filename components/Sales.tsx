@@ -844,7 +844,7 @@ export default function Sales({
           <button
             type="button"
             onClick={onBack}
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer font-medium"
+            className="bg-blue-600 text-white px-3 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer font-medium"
           >
             ← Back to Dashboard
           </button>
@@ -891,10 +891,10 @@ export default function Sales({
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-2">
           {/* RECORD SALE */}
 
-          <div className="bg-white rounded-lg shadow-sm p-5 min-w-0">
+          <div className="bg-white rounded-lg shadow-sm p-3 min-w-0">
 
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Record New Sale
@@ -904,7 +904,7 @@ export default function Sales({
               onSubmit={
                 handleRecordSale
               }
-              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
             >
 
               {/* PRODUCT */}
@@ -1019,8 +1019,8 @@ export default function Sales({
           {/* ========================= */}
           {/* CHANGE CALCULATOR */}
 
-          <section className="bg-white rounded-lg shadow-sm p-5 min-w-0">
-            <div className="flex items-center justify-between gap-3 mb-4">
+          <section className="bg-white rounded-lg shadow-sm p-3 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <button
                 type="button"
                 onClick={clearCalculator}
