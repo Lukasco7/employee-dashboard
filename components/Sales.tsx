@@ -1036,7 +1036,7 @@ export default function Sales({
                 onClick={() => setCalculatorField('due')}
                 className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
                   calculatorField === 'due'
-                    ? 'border-blue-500 bg-blue-50'
+                    ? 'border-blue-300 bg-blue-50'
                     : 'border-gray-200 bg-white hover:bg-gray-50'
                 }`}
               >
