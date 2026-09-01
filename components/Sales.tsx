@@ -1025,9 +1025,7 @@ export default function Sales({
                 <h2 className="text-lg font-semibold text-gray-800">
                   Digital Change Calculator
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Tap a field, enter the amount using the digital keypad, and calculate change instantly.
-                </p>
+                
               </div>
 
               <button
