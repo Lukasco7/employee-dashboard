@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
@@ -890,292 +891,291 @@ export default function Sales({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-5 items-stretch mb-5">
-        {/* RECORD SALE */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+          {/* RECORD SALE */}
 
-        <div className="bg-white rounded-lg shadow-sm p-5 h-full">
+          <div className="bg-white rounded-lg shadow-sm p-5 min-w-0">
 
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Record New Sale
-          </h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Record New Sale
+            </h2>
 
-          <form
-            onSubmit={
-              handleRecordSale
-            }
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-          >
+            <form
+              onSubmit={
+                handleRecordSale
+              }
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            >
 
-            {/* PRODUCT */}
+              {/* PRODUCT */}
 
-            <div>
+              <div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product
-              </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product
+                </label>
 
-              <select
-                value={productId}
-                onChange={(e) =>
-                  setProductId(
-                    e.target.value
-                  )
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
+                <select
+                  value={productId}
+                  onChange={(e) =>
+                    setProductId(
+                      e.target.value
+                    )
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
 
-                <option value="">
-                  Select product
-                </option>
+                  <option value="">
+                    Select product
+                  </option>
 
-                {products.map(
-                  (product) => (
-                    <option
-                      key={product.id}
-                      value={product.id}
-                    >
-                      {product.name} — {formatCurrency(
-                        product.price || 0
-                      )}
-                      {' '}— Stock:{' '}
-                      {Number(
-                        product.stock || 0
-                      )}
-                    </option>
-                  )
-                )}
+                  {products.map(
+                    (product) => (
+                      <option
+                        key={product.id}
+                        value={product.id}
+                      >
+                        {product.name} — {formatCurrency(
+                          product.price || 0
+                        )}
+                        {' '}— Stock:{' '}
+                        {Number(
+                          product.stock || 0
+                        )}
+                      </option>
+                    )
+                  )}
 
-              </select>
+                </select>
 
-            </div>
-
-            {/* QUANTITY */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quantity
-              </label>
-
-              <input
-                type="number"
-                min="1"
-                max={
-                  selectedProduct?.stock ||
-                  undefined
-                }
-                step="1"
-                value={quantity}
-                onChange={(e) =>
-                  setQuantity(
-                    e.target.value
-                  )
-                }
-                placeholder="Enter quantity"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-
-            </div>
-
-            {/* AMOUNT */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sale Amount
-              </label>
-
-              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 font-semibold">
-                {formatCurrency(
-                  calculatedAmount
-                )}
               </div>
 
-            </div>
+              {/* QUANTITY */}
 
-            {/* SAVE */}
+              <div>
 
-            <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantity
+                </label>
+
+                <input
+                  type="number"
+                  min="1"
+                  max={
+                    selectedProduct?.stock ||
+                    undefined
+                  }
+                  step="1"
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Enter quantity"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+
+              </div>
+
+              {/* AMOUNT */}
+
+              <div>
+
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sale Amount
+                </label>
+
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 font-semibold">
+                  {formatCurrency(
+                    calculatedAmount
+                  )}
+                </div>
+
+              </div>
+
+              {/* SAVE */}
+
+              <div className="sm:col-span-2">
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving
+                    ? 'Recording...'
+                    : 'Record Sale'}
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+          {/* ========================= */}
+          {/* CHANGE CALCULATOR */}
+
+          <section className="bg-white rounded-lg shadow-sm p-5 min-w-0">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Digital Change Calculator
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Tap a field, enter the amount using the digital keypad, and calculate change instantly.
+                </p>
+              </div>
 
               <button
-                type="submit"
-                disabled={saving}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={clearCalculator}
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
               >
-                {saving
-                  ? 'Recording...'
-                  : 'Record Sale'}
+                Clear
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => setCalculatorField('due')}
+                className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
+                  calculatorField === 'due'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Amount Due
+                </p>
+                <p className="text-xl font-extrabold text-gray-900 mt-1">
+                  {formatMoney(validAmountDue ? parsedAmountDue : 0)}
+                </p>
               </button>
 
-            </div>
-
-          </form>
-
-
-        {/* ========================= */}
-        {/* CHANGE CALCULATOR */}
-
-        <section className="bg-white rounded-lg shadow-sm p-5 h-full">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">
-                Digital Change Calculator
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Tap a field, enter the amount using the digital keypad, and calculate change instantly.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={clearCalculator}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
-            >
-              Clear
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <button
-              type="button"
-              onClick={() => setCalculatorField('due')}
-              className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
-                calculatorField === 'due'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 bg-white hover:bg-gray-50'
-              }`}
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                Amount Due
-              </p>
-              <p className="text-xl font-extrabold text-gray-900 mt-1">
-                {formatMoney(validAmountDue ? parsedAmountDue : 0)}
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCalculatorField('received')}
-              className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
-                calculatorField === 'received'
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-200 bg-white hover:bg-gray-50'
-              }`}
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                Amount Received
-              </p>
-              <p className="text-xl font-extrabold text-gray-900 mt-1">
-                {formatMoney(validAmountReceived ? parsedAmountReceived : 0)}
-              </p>
-            </button>
-          </div>
-
-          <div className="rounded-2xl bg-gray-900 p-4 mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">
-              {calculatorField === 'due'
-                ? 'Entering Amount Due'
-                : 'Entering Amount Received'}
-            </p>
-            <div
-              className="mt-2 min-h-14 px-4 py-3 rounded-xl bg-gray-800 text-white text-3xl font-extrabold text-right overflow-x-auto"
-              aria-live="polite"
-            >
-              {calculatorField === 'due'
-                ? amountDue || '0.00'
-                : amountReceived || '0.00'}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={useSaleAmountForCalculator}
-            disabled={!selectedProduct || saleQuantity <= 0}
-            className="w-full mb-4 bg-blue-100 text-blue-700 px-4 py-3 rounded-xl hover:bg-blue-200 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            Use Current Sale Amount
-          </button>
-
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(
-              (digit) => (
-                <button
-                  key={digit}
-                  type="button"
-                  onClick={() => appendCalculatorDigit(digit)}
-                  className="min-h-14 rounded-xl bg-gray-100 border border-gray-200 text-xl font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
-                >
-                  {digit}
-                </button>
-              )
-            )}
-
-            <button
-              type="button"
-              onClick={deleteCalculatorDigit}
-              className="min-h-14 rounded-xl bg-orange-100 border border-orange-200 text-lg font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
-            >
-              ⌫
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Change Due
-            </p>
-
-            <p
-              className={`text-4xl font-extrabold mt-2 ${
-                customerHasPaidEnough
-                  ? 'text-green-700'
-                  : validAmountDue && validAmountReceived
-                    ? 'text-red-700'
-                    : 'text-blue-700'
-              }`}
-            >
-              {formatMoney(Math.max(changeDue, 0))}
-            </p>
-
-            {validAmountDue &&
-              validAmountReceived &&
-              !customerHasPaidEnough && (
-                <p className="text-sm font-semibold text-red-700 mt-2">
-                  Customer still owes {formatMoney(Math.abs(changeDue))}.
+              <button
+                type="button"
+                onClick={() => setCalculatorField('received')}
+                className={`rounded-xl border-2 p-4 text-left transition cursor-pointer ${
+                  calculatorField === 'received'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Amount Received
                 </p>
-              )}
-          </div>
+                <p className="text-xl font-extrabold text-gray-900 mt-1">
+                  {formatMoney(validAmountReceived ? parsedAmountReceived : 0)}
+                </p>
+              </button>
+            </div>
 
-          {customerHasPaidEnough && changeDue > 0 && (
-            <div className="rounded-xl bg-white border border-gray-200 p-4">
-              <p className="text-sm font-bold text-gray-700 mb-3">
-                Suggested Change Breakdown
+            <div className="rounded-2xl bg-gray-900 p-4 mb-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">
+                {calculatorField === 'due'
+                  ? 'Entering Amount Due'
+                  : 'Entering Amount Received'}
               </p>
-
-              <div className="flex flex-wrap gap-2">
-                {getChangeBreakdown(changeDue).map((item) => (
-                  <span
-                    key={`${item.amount}-${item.count}`}
-                    className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800"
-                  >
-                    {item.count} × {calculatorCurrency} {item.amount.toFixed(2)}
-                  </span>
-                ))}
+              <div
+                className="mt-2 min-h-14 px-4 py-3 rounded-xl bg-gray-800 text-white text-3xl font-extrabold text-right overflow-x-auto"
+                aria-live="polite"
+              >
+                {calculatorField === 'due'
+                  ? amountDue || '0.00'
+                  : amountReceived || '0.00'}
               </div>
             </div>
-          )}
 
-          {customerHasPaidEnough && changeDue === 0 && (
-            <div className="rounded-xl bg-green-50 border border-green-200 p-4">
-              <p className="text-sm font-semibold text-green-800">
-                Exact payment — no change required.
-              </p>
+            <button
+              type="button"
+              onClick={useSaleAmountForCalculator}
+              disabled={!selectedProduct || saleQuantity <= 0}
+              className="w-full mb-4 bg-blue-100 text-blue-700 px-4 py-3 rounded-xl hover:bg-blue-200 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Use Current Sale Amount
+            </button>
+
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(
+                (digit) => (
+                  <button
+                    key={digit}
+                    type="button"
+                    onClick={() => appendCalculatorDigit(digit)}
+                    className="min-h-14 rounded-xl bg-gray-100 border border-gray-200 text-xl font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
+                  >
+                    {digit}
+                  </button>
+                )
+              )}
+
+              <button
+                type="button"
+                onClick={deleteCalculatorDigit}
+                className="min-h-14 rounded-xl bg-orange-100 border border-orange-200 text-lg font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
+              >
+                ⌫
+              </button>
             </div>
-          )}
-        </section>
 
-        </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Change Due
+              </p>
+
+              <p
+                className={`text-4xl font-extrabold mt-2 ${
+                  customerHasPaidEnough
+                    ? 'text-green-700'
+                    : validAmountDue && validAmountReceived
+                      ? 'text-red-700'
+                      : 'text-blue-700'
+                }`}
+              >
+                {formatMoney(Math.max(changeDue, 0))}
+              </p>
+
+              {validAmountDue &&
+                validAmountReceived &&
+                !customerHasPaidEnough && (
+                  <p className="text-sm font-semibold text-red-700 mt-2">
+                    Customer still owes {formatMoney(Math.abs(changeDue))}.
+                  </p>
+                )}
+            </div>
+
+            {customerHasPaidEnough && changeDue > 0 && (
+              <div className="rounded-xl bg-white border border-gray-200 p-4">
+                <p className="text-sm font-bold text-gray-700 mb-3">
+                  Suggested Change Breakdown
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {getChangeBreakdown(changeDue).map((item) => (
+                    <span
+                      key={`${item.amount}-${item.count}`}
+                      className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800"
+                    >
+                      {item.count} × {calculatorCurrency} {item.amount.toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {customerHasPaidEnough && changeDue === 0 && (
+              <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                <p className="text-sm font-semibold text-green-800">
+                  Exact payment — no change required.
+                </p>
+              </div>
+            )}
+          </section>
 
         </div>
 
@@ -1349,6 +1349,7 @@ export default function Sales({
 
           </div>
         )}
+
       {/* ========================= */}
       {/* PRINTABLE RECEIPT */}
       {/* ========================= */}
