@@ -43,6 +43,12 @@ export default function Sales({
 
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState('');
+
+  // Product selector search. The normal dropdown remains available.
+  const [productSearch, setProductSearch] = useState('');
+  const [productSearchActive, setProductSearchActive] = useState(false);
+
+  // Sales-history search.
   const [search, setSearch] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -181,6 +187,51 @@ export default function Sales({
   }, []);
 
   // =========================
+  // PRODUCT SELECTOR SEARCH
+  // =========================
+
+  const normalizedProductSearch =
+    productSearch.trim().toLowerCase();
+
+  const productOptions =
+    productSearchActive && normalizedProductSearch
+      ? products.filter((product) => {
+          const name = String(product.name || '').toLowerCase();
+          const category = String(product.category || '').toLowerCase();
+
+          return (
+            name.includes(normalizedProductSearch) ||
+            category.includes(normalizedProductSearch)
+          );
+        })
+      : products;
+
+  const handleProductSearch = () => {
+    setProductSearchActive(true);
+
+    if (
+      productId &&
+      normalizedProductSearch &&
+      !products.some(
+        (product) =>
+          String(product.id) === String(productId) &&
+          (
+            String(product.name || '').toLowerCase().includes(normalizedProductSearch) ||
+            String(product.category || '').toLowerCase().includes(normalizedProductSearch)
+          )
+      )
+    ) {
+      setProductId('');
+      setQuantity('');
+    }
+  };
+
+  const clearProductSearch = () => {
+    setProductSearch('');
+    setProductSearchActive(false);
+  };
+
+  // =========================
   // SELECTED PRODUCT
   // =========================
 
@@ -237,6 +288,13 @@ export default function Sales({
   }
 
   const newQuantity = Number(quantity);
+
+  if (selectedProduct.stock <= 0) {
+    setError(
+      `${selectedProduct.name} is out of stock and cannot be sold.`
+    );
+    return;
+  }
 
   if (newQuantity > selectedProduct.stock) {
     setError(
@@ -471,6 +529,7 @@ export default function Sales({
 
     setProductId('');
     setQuantity('');
+    clearProductSearch();
 
     const recordedSale: Sale = {
       id: Number(
@@ -597,6 +656,8 @@ export default function Sales({
       // =========================
       // RESTORE STOCK
       // =========================
+      // Deleting a sale reverses the recorded sale, so the quantity
+      // sold is returned to inventory.
 
       const product =
         products.find(
@@ -605,10 +666,14 @@ export default function Sales({
             Number(sale.product_id)
         );
 
+      let stockWasRestored = false;
+      let previousStock: number | null = null;
+
       if (product) {
+        previousStock = Number(product.stock);
+
         const restoredStock =
-          Number(product.stock) +
-          Number(sale.quantity);
+          previousStock + Number(sale.quantity);
 
         const { error: stockError } =
           await supabase
@@ -624,6 +689,8 @@ export default function Sales({
         if (stockError) {
           throw stockError;
         }
+
+        stockWasRestored = true;
       }
 
       // =========================
@@ -640,11 +707,38 @@ export default function Sales({
           );
 
       if (deleteError) {
+        // Best-effort rollback if the sale could not be deleted.
+        if (
+          product &&
+          stockWasRestored &&
+          previousStock !== null
+        ) {
+          const { error: rollbackError } =
+            await supabase
+              .from('products')
+              .update({
+                stock: previousStock,
+              })
+              .eq(
+                'id',
+                product.id
+              );
+
+          if (rollbackError) {
+            console.error(
+              'CRITICAL: Sale deletion failed and stock rollback also failed:',
+              rollbackError
+            );
+          }
+        }
+
         throw deleteError;
       }
 
       setSuccess(
-        'Sale deleted successfully and stock restored.'
+        product
+          ? 'Sale deleted successfully and the sold quantity was restored to inventory.'
+          : 'Sale deleted successfully. The related product was not found, so no inventory change was made.'
       );
 
       await loadData();
@@ -909,46 +1003,91 @@ export default function Sales({
 
               {/* PRODUCT */}
 
-              <div>
-
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Product
                 </label>
 
+                <div className="flex gap-1.5 mb-1.5">
+                  <input
+                    type="search"
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setProductSearchActive(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleProductSearch();
+                      }
+                    }}
+                    placeholder="Search product name or category..."
+                    className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Search products"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleProductSearch}
+                    className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold cursor-pointer"
+                  >
+                    🔍 Search
+                  </button>
+
+                  {(productSearch || productSearchActive) && (
+                    <button
+                      type="button"
+                      onClick={clearProductSearch}
+                      className="shrink-0 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-semibold cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {productSearchActive && normalizedProductSearch && (
+                  <p className="text-xs text-gray-500 mb-1.5">
+                    {productOptions.length === 0
+                      ? 'No matching products found.'
+                      : `${productOptions.length} matching product${productOptions.length === 1 ? '' : 's'} found.`}
+                  </p>
+                )}
+
                 <select
                   value={productId}
-                  onChange={(e) =>
-                    setProductId(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => {
+                    setProductId(e.target.value);
+                    setQuantity('');
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-
                   <option value="">
-                    Select product
+                    {productOptions.length === 0
+                      ? 'No matching products'
+                      : 'Select product'}
                   </option>
 
-                  {products.map(
-                    (product) => (
-                      <option
-                        key={product.id}
-                        value={product.id}
-                      >
-                        {product.name} — {formatCurrency(
-                          product.price || 0
-                        )}
-                        {' '}— Stock:{' '}
-                        {Number(
-                          product.stock || 0
-                        )}
-                      </option>
-                    )
-                  )}
-
+                  {productOptions.map((product) => (
+                    <option
+                      key={product.id}
+                      value={product.id}
+                      disabled={Number(product.stock || 0) <= 0}
+                    >
+                      {product.name} — {formatCurrency(product.price || 0)}
+                      {' '}— Stock: {Number(product.stock || 0)}
+                      {Number(product.stock || 0) <= 0 ? ' — OUT OF STOCK' : ''}
+                    </option>
+                  ))}
                 </select>
 
+                {selectedProduct && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Available stock: <strong>{selectedProduct.stock}</strong>
+                    {' '}• Unit price: <strong>{formatCurrency(selectedProduct.price)}</strong>
+                  </p>
+                )}
               </div>
 
               {/* QUANTITY */}
@@ -1021,6 +1160,9 @@ export default function Sales({
 
           <section className="bg-white rounded-lg shadow-sm p-2.5 min-w-0">
             <div className="flex items-center justify-between gap-2 mb-1">
+              <h2 className="text-base font-semibold text-gray-800">
+                Digital Calculator
+              </h2>
               <button
                 type="button"
                 onClick={clearCalculator}
