@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 
@@ -753,6 +753,52 @@ export default function Sales({
   const [calculatorField, setCalculatorField] =
     useState<'due' | 'received'>('received');
 
+  const calculatorInputRef = useRef<HTMLInputElement>(null);
+
+  const focusCalculatorInput = () => {
+    window.requestAnimationFrame(() => {
+      calculatorInputRef.current?.focus();
+      calculatorInputRef.current?.select();
+    });
+  };
+
+  const handleCalculatorKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (/^[0-9]$/.test(event.key)) {
+      event.preventDefault();
+      appendCalculatorDigit(event.key);
+      return;
+    }
+    if (event.key === '.' || event.key === ',') {
+      event.preventDefault();
+      appendCalculatorDigit('.');
+      return;
+    }
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      event.preventDefault();
+      deleteCalculatorDigit();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      clearCalculator();
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setCalculatorField('due');
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setCalculatorField('received');
+    }
+  };
+
+  useEffect(() => {
+    focusCalculatorInput();
+  }, [calculatorField]);
+
+
   const appendCalculatorDigit = (digit: string) => {
     const setter =
       calculatorField === 'due'
@@ -798,6 +844,49 @@ export default function Sales({
     setAmountDue(calculatedAmount.toFixed(2));
     setCalculatorField('received');
   };
+
+  // Physical keyboard support for the calculator.
+  // The calculator display itself is a real input, so normal typing works
+  // when it is focused. These shortcuts also allow typing after clicking
+  // the calculator area without interfering with the sale form fields.
+  useEffect(() => {
+    const handleCalculatorKeyboard = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+        appendCalculatorDigit(event.key);
+      } else if (event.key === '.' || event.key === ',') {
+        event.preventDefault();
+        appendCalculatorDigit('.');
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        deleteCalculatorDigit();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        clearCalculator();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        setCalculatorField('due');
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setCalculatorField('received');
+      }
+    };
+
+    window.addEventListener('keydown', handleCalculatorKeyboard);
+    return () => window.removeEventListener('keydown', handleCalculatorKeyboard);
+  }, [calculatorField]);
 
   const getChangeBreakdown = (value: number) => {
     let remaining = Math.round(value * 100);
@@ -1033,7 +1122,7 @@ export default function Sales({
             <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
-                onClick={() => setCalculatorField('due')}
+                onClick={() => { setCalculatorField('due'); focusCalculatorInput(); }}
                 className={`rounded-xl border-2 p-2 text-left transition cursor-pointer ${
                   calculatorField === 'due'
                     ? 'border-blue-200 bg-blue-50'
@@ -1050,7 +1139,7 @@ export default function Sales({
 
               <button
                 type="button"
-                onClick={() => setCalculatorField('received')}
+                onClick={() => { setCalculatorField('received'); focusCalculatorInput(); }}
                 className={`rounded-xl border-2 p-2 text-left transition cursor-pointer ${
                   calculatorField === 'received'
                     ? 'border-green-500 bg-green-50'
@@ -1067,15 +1156,38 @@ export default function Sales({
             </div>
 
             
-              <div
-                className="mt-1 min-h-10 px-3 py-2 rounded-xl bg-gray-800 text-white text-xl font-extrabold text-right overflow-x-auto"
-                aria-live="polite"
-              >
-                {calculatorField === 'due'
-                  ? amountDue || '0.00'
-                  : amountReceived || '0.00'}
-              
-            </div>
+              <input
+                ref={calculatorInputRef}
+                type="text"
+                inputMode="decimal"
+                aria-label={
+                  calculatorField === 'due'
+                    ? 'Amount Due'
+                    : 'Amount Received'
+                }
+                value={
+                  calculatorField === 'due'
+                    ? amountDue
+                    : amountReceived
+                }
+                onKeyDown={handleCalculatorKeyDown}
+                onChange={(e) => {
+                  const value = e.target.value.replace(',', '.');
+
+                  // Allow only a valid money value with up to 2 decimals.
+                  if (!/^\d*(\.\d{0,2})?$/.test(value)) {
+                    return;
+                  }
+
+                  if (calculatorField === 'due') {
+                    setAmountDue(value);
+                  } else {
+                    setAmountReceived(value);
+                  }
+                }}
+                placeholder="0.00"
+                className="mt-1 min-h-10 w-full px-3 py-2 rounded-xl bg-gray-800 text-white text-xl font-extrabold text-right outline-none border-2 border-transparent focus:border-blue-400"
+              />
 
             <button
               type="button"
