@@ -45,9 +45,6 @@ export default function Sales({
   const [quantity, setQuantity] = useState('');
   const [search, setSearch] = useState('');
 
-  // Product search/dropdown
-  const [productSearch, setProductSearch] = useState('');
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -182,59 +179,6 @@ export default function Sales({
   useEffect(() => {
     loadData();
   }, []);
-
-  // =========================
-  // PRODUCT SEARCH
-  // =========================
-
-  const normalizedProductSearch =
-    productSearch.trim().toLowerCase();
-
-  const productSearchResults =
-    normalizedProductSearch.length > 0
-      ? products.filter((product) => {
-          const name = String(product.name || '').toLowerCase();
-          const category = String(product.category || '').toLowerCase();
-
-          return (
-            name.includes(normalizedProductSearch) ||
-            category.includes(normalizedProductSearch)
-          );
-        })
-      : [];
-
-  const handleProductSearch = () => {
-    if (productSearchResults.length === 1) {
-      const product = productSearchResults[0];
-
-      if (product.stock > 0) {
-        setProductId(String(product.id));
-        setProductSearch('');
-      }
-    }
-  };
-
-  const handleProductSearchKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleProductSearch();
-    }
-  };
-
-  const selectSearchedProduct = (product: Product) => {
-    if (product.stock <= 0) {
-      return;
-    }
-
-    setProductId(String(product.id));
-    setProductSearch('');
-  };
-
-  const clearProductSearch = () => {
-    setProductSearch('');
-  };
 
   // =========================
   // SELECTED PRODUCT
@@ -527,7 +471,6 @@ export default function Sales({
 
     setProductId('');
     setQuantity('');
-    clearProductSearch();
 
     const recordedSale: Sale = {
       id: Number(
@@ -966,144 +909,46 @@ export default function Sales({
 
               {/* PRODUCT */}
 
-              <div className="sm:col-span-2 min-w-0">
+              <div>
+
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Product
                 </label>
 
-                {/* PRODUCT SEARCH */}
-                <div className="flex gap-1.5 mb-2">
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    onKeyDown={handleProductSearchKeyDown}
-                    placeholder="Type product name or category..."
-                    autoComplete="off"
-                    className="flex-1 min-w-0 px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleProductSearch}
-                    disabled={productSearch.trim() === ''}
-                    className="shrink-0 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    🔍 Search
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={clearProductSearch}
-                    disabled={productSearch.trim() === ''}
-                    className="shrink-0 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                {/* SEARCH RESULTS ARE ALWAYS IN NORMAL FLOW */}
-                {normalizedProductSearch.length > 0 && (
-                  <div className="w-full mb-2 rounded-lg border-2 border-blue-400 bg-white shadow-sm overflow-hidden">
-                    <div className="px-3 py-2 bg-blue-50 border-b border-blue-200">
-                      <span className="text-xs font-bold text-blue-800">
-                        {productSearchResults.length} result
-                        {productSearchResults.length === 1 ? '' : 's'}
-                      </span>
-                    </div>
-
-                    {productSearchResults.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-gray-600">
-                        No product found for <strong>"{productSearch}"</strong>.
-                      </div>
-                    ) : (
-                      <div className="max-h-60 overflow-y-auto">
-                        {productSearchResults.map((product) => (
-                          <div
-                            key={product.id}
-                            role="button"
-                            tabIndex={product.stock > 0 ? 0 : -1}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectSearchedProduct(product);
-                            }}
-                            onKeyDown={(e) => {
-                              if (
-                                e.key === 'Enter' &&
-                                product.stock > 0
-                              ) {
-                                e.preventDefault();
-                                selectSearchedProduct(product);
-                              }
-                            }}
-                            className={`w-full px-3 py-3 text-left border-b border-gray-200 last:border-b-0 ${
-                              product.stock > 0
-                                ? 'cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:outline-none'
-                                : 'bg-gray-50 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-bold text-gray-900">
-                                {product.name}
-                              </span>
-
-                              <span className="text-xs font-bold whitespace-nowrap">
-                                {product.stock > 0
-                                  ? `Stock: ${product.stock}`
-                                  : 'OUT OF STOCK'}
-                              </span>
-                            </div>
-
-                            <div className="mt-1 text-xs text-gray-600">
-                              {product.category || 'No category'}
-                              {' • '}
-                              {formatCurrency(Number(product.price) || 0)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* NORMAL PRODUCT DROPDOWN */}
                 <select
                   value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
+                  onChange={(e) =>
+                    setProductId(
+                      e.target.value
+                    )
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
+
                   <option value="">
-                    Select product from list
+                    Select product
                   </option>
 
-                  {products.map((product) => (
-                    <option
-                      key={product.id}
-                      value={product.id}
-                      disabled={product.stock <= 0}
-                    >
-                      {product.name} — {formatCurrency(
-                        product.price || 0
-                      )} — Stock: {Number(product.stock || 0)}
-                      {product.stock <= 0 ? ' — OUT OF STOCK' : ''}
-                    </option>
-                  ))}
+                  {products.map(
+                    (product) => (
+                      <option
+                        key={product.id}
+                        value={product.id}
+                      >
+                        {product.name} — {formatCurrency(
+                          product.price || 0
+                        )}
+                        {' '}— Stock:{' '}
+                        {Number(
+                          product.stock || 0
+                        )}
+                      </option>
+                    )
+                  )}
+
                 </select>
 
-                {selectedProduct && (
-                  <div className="mt-1.5 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs">
-                    <span className="font-semibold text-blue-800">
-                      Selected:
-                    </span>{' '}
-                    <span className="text-blue-700">
-                      {selectedProduct.name}
-                    </span>
-                    <span className="text-blue-600">
-                      {' '}• Stock: {selectedProduct.stock}
-                    </span>
-                  </div>
-                )}
               </div>
 
               {/* QUANTITY */}
@@ -1174,22 +1019,22 @@ export default function Sales({
           {/* ========================= */}
           {/* CHANGE CALCULATOR */}
 
-          <section className="bg-white rounded-lg shadow-sm p-5 min-w-0">
-            <div className="flex items-center justify-between gap-3 mb-3">
+          <section className="bg-white rounded-lg shadow-sm p-2.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1">
               <button
                 type="button"
                 onClick={clearCalculator}
-                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-semibold cursor-pointer"
+                className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition text-sm font-semibold cursor-pointer"
               >
                 Clear
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
                 onClick={() => setCalculatorField('due')}
-                className={`rounded-xl border-2 p-3 text-left transition cursor-pointer ${
+                className={`rounded-xl border-2 p-2 text-left transition cursor-pointer ${
                   calculatorField === 'due'
                     ? 'border-blue-200 bg-blue-50'
                     : 'border-gray-200 bg-white hover:bg-gray-50'
@@ -1198,7 +1043,7 @@ export default function Sales({
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                   Amount Due
                 </p>
-                <p className="text-lg font-extrabold text-gray-900 mt-1">
+                <p className="text-base font-extrabold text-gray-900 mt-0.5">
                   {formatMoney(validAmountDue ? parsedAmountDue : 0)}
                 </p>
               </button>
@@ -1206,7 +1051,7 @@ export default function Sales({
               <button
                 type="button"
                 onClick={() => setCalculatorField('received')}
-                className={`rounded-xl border-2 p-3 text-left transition cursor-pointer ${
+                className={`rounded-xl border-2 p-2 text-left transition cursor-pointer ${
                   calculatorField === 'received'
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 bg-white hover:bg-gray-50'
@@ -1215,7 +1060,7 @@ export default function Sales({
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                   Amount Received
                 </p>
-                <p className="text-lg font-extrabold text-gray-900 mt-1">
+                <p className="text-base font-extrabold text-gray-900 mt-0.5">
                   {formatMoney(validAmountReceived ? parsedAmountReceived : 0)}
                 </p>
               </button>
@@ -1223,7 +1068,7 @@ export default function Sales({
 
             
               <div
-                className="mt-1 min-h-12 px-4 py-3 rounded-xl bg-gray-800 text-white text-2xl font-extrabold text-right overflow-x-auto"
+                className="mt-1 min-h-10 px-3 py-2 rounded-xl bg-gray-800 text-white text-xl font-extrabold text-right overflow-x-auto"
                 aria-live="polite"
               >
                 {calculatorField === 'due'
@@ -1236,19 +1081,19 @@ export default function Sales({
               type="button"
               onClick={useSaleAmountForCalculator}
               disabled={!selectedProduct || saleQuantity <= 0}
-              className="w-full mb-3 bg-blue-100 text-blue-700 px-4 py-3 rounded-xl hover:bg-blue-200 transition text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full mb-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-xl hover:bg-blue-200 transition text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               Use Current Sale Amount
             </button>
 
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-1.5 mb-2">
               {['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(
                 (digit) => (
                   <button
                     key={digit}
                     type="button"
                     onClick={() => appendCalculatorDigit(digit)}
-                    className="h-12 rounded-xl bg-gray-100 border border-gray-200 text-lg font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
+                    className="h-10 rounded-xl bg-gray-100 border border-gray-200 text-base font-bold text-gray-800 hover:bg-gray-200 active:scale-95 transition cursor-pointer"
                   >
                     {digit}
                   </button>
@@ -1258,13 +1103,13 @@ export default function Sales({
               <button
                 type="button"
                 onClick={deleteCalculatorDigit}
-                className="h-12 rounded-xl bg-orange-100 border border-orange-200 text-lg font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
+                className="h-10 rounded-xl bg-orange-100 border border-orange-200 text-base font-bold text-orange-800 hover:bg-orange-200 active:scale-95 transition cursor-pointer"
               >
                 ⌫
               </button>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 mb-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-2 mb-2">
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Change Due
               </p>
@@ -1291,7 +1136,7 @@ export default function Sales({
             </div>
 
             {customerHasPaidEnough && changeDue > 0 && (
-              <div className="rounded-xl bg-white border border-gray-200 p-3">
+              <div className="rounded-xl bg-white border border-gray-200 p-2">
                 <p className="text-xs font-bold text-gray-700 mb-1.5">
                   Suggested Change Breakdown
                 </p>
@@ -1310,7 +1155,7 @@ export default function Sales({
             )}
 
             {customerHasPaidEnough && changeDue === 0 && (
-              <div className="rounded-xl bg-green-50 border border-green-200 p-3">
+              <div className="rounded-xl bg-green-50 border border-green-200 p-2">
                 <p className="text-sm font-semibold text-green-800">
                   Exact payment — no change required.
                 </p>
