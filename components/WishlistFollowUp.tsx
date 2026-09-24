@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/currency';
 
 interface Customer {
   id: number;
@@ -96,11 +95,9 @@ export default function WishlistFollowUp({
   const [success, setSuccess] =
     useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError('');
-
       const [
         customersResult,
         productsResult,
@@ -212,6 +209,8 @@ export default function WishlistFollowUp({
           })
         )
       );
+
+      setError('');
     } catch (err) {
       console.error(
         'Wishlist load error:',
@@ -226,11 +225,19 @@ export default function WishlistFollowUp({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = window.setTimeout(() => {
+      // This initial async data load intentionally updates React state after the effect schedules it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadData();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [loadData]);
 
   const getCustomer = (
     id: number
@@ -240,13 +247,14 @@ export default function WishlistFollowUp({
         customer.id === id
     ) || null;
 
-  const getProduct = (
-    id: number
-  ) =>
-    products.find(
-      (product) =>
-        product.id === id
-    ) || null;
+  const getProduct = useCallback(
+    (id: number) =>
+      products.find(
+        (product) =>
+          product.id === id
+      ) || null,
+    [products]
+  );
 
   const selectedCustomer =
     selectedCustomerId
@@ -354,7 +362,7 @@ export default function WishlistFollowUp({
         item.status !== 'Lost Sale'
       );
     });
-  }, [items, products]);
+  }, [items, getProduct]);
 
   const backInStockItems = useMemo(() => {
     return items.filter((item) => {
@@ -368,7 +376,7 @@ export default function WishlistFollowUp({
         item.status !== 'Lost Sale'
       );
     });
-  }, [items, products]);
+  }, [items, getProduct]);
 
   const resetForm = () => {
     setProductId('');

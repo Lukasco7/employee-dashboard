@@ -6,7 +6,6 @@ import {
   Html5QrcodeSupportedFormats,
 } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -144,7 +143,7 @@ export default function BarcodeScanner({
 
       if (cameraScanner) {
         if (cameraScanner.isScanning) {
-          cameraScanner.stop().catch(() => {});
+          cameraScanner.stop().catch(() => { });
         }
 
         try {
@@ -269,7 +268,7 @@ export default function BarcodeScanner({
         if (!response.ok) {
           throw new Error(
             externalData?.error ||
-              'External barcode lookup failed.'
+            'External barcode lookup failed.'
           );
         }
 
@@ -279,12 +278,12 @@ export default function BarcodeScanner({
         ) {
           setNewProductName(
             externalData.product.name ||
-              ''
+            ''
           );
 
           setNewProductCategory(
             externalData.product.category ||
-              ''
+            ''
           );
 
           setShowRegister(true);
@@ -839,26 +838,6 @@ export default function BarcodeScanner({
     setNewProductStock('');
   };
 
-  // =========================
-  // PRICE
-  // =========================
-
-  const formatPrice = (
-    value: number | string
-  ) => {
-    const numericValue =
-      Number(
-        String(value)
-          .replace('$', '')
-          .trim()
-      );
-
-    return Number.isFinite(
-      numericValue
-    )
-      ? numericValue.toFixed(2)
-      : '0.00';
-  };
 
   // =========================
   // STOCK
@@ -897,6 +876,15 @@ export default function BarcodeScanner({
 
     return 'bg-green-100 text-green-800';
   };
+
+  function formatPrice(price: string | number): import("react").ReactNode {
+    const numericPrice =
+      typeof price === 'number' ? price : Number(price);
+
+    return Number.isFinite(numericPrice)
+      ? numericPrice.toFixed(2)
+      : '0.00';
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -1008,7 +996,7 @@ export default function BarcodeScanner({
           <div className="flex flex-col sm:flex-row gap-3 mt-5">
 
             {scannerState ===
-            'scanning' ? (
+              'scanning' ? (
               <button
                 type="button"
                 onClick={
@@ -1042,9 +1030,9 @@ export default function BarcodeScanner({
               }
               disabled={
                 scannerState ===
-                  'starting' ||
+                'starting' ||
                 scannerState ===
-                  'stopping'
+                'stopping'
               }
               className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold disabled:opacity-50 cursor-pointer"
             >
@@ -1244,7 +1232,8 @@ export default function BarcodeScanner({
                 </p>
 
                 <p className="text-xl font-semibold text-gray-800 mt-1">
-                  {formatCurrency(
+                  $
+                  {formatPrice(
                     product.price
                   )}
                 </p>
@@ -1289,7 +1278,7 @@ export default function BarcodeScanner({
             </h2>
 
             <p className="text-sm text-gray-500 mt-1 mb-4">
-              We couldn't find this barcode in your
+              We couldn&apos;t find this barcode in your
               inventory. Review the information below
               before saving it.
             </p>

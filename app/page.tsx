@@ -57,8 +57,12 @@ export default function Home() {
         const user = JSON.parse(savedUser);
 
         if (user?.loggedIn) {
+          // localStorage is browser-only, so restore the saved session here.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setUserEmail(user.email || '');
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setUserRole(user.role || '');
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setCurrentPage('dashboard');
         }
       }

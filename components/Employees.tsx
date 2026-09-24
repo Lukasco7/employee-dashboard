@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface Role {
@@ -130,40 +130,10 @@ export default function Employees({
     useState('Active');
 
   // =========================
-  // LOAD DATA
-  // =========================
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      await Promise.all([
-        fetchEmployees(),
-        fetchRoles(),
-      ]);
-    } catch (err) {
-      console.error('Error loading employee data:', err);
-
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Unable to load employee data.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =========================
   // FETCH EMPLOYEES
   // =========================
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     const { data, error } = await supabase
       .from('employees')
       .select(`
@@ -195,13 +165,13 @@ export default function Employees({
     }
 
     setEmployees(data || []);
-  };
+  }, []);
 
   // =========================
   // FETCH ROLES
   // =========================
 
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
     const { data, error } = await supabase
       .from('roles')
       .select('id, name')
@@ -214,10 +184,43 @@ export default function Employees({
     }
 
     setRoles(data || []);
-  };
+  }, []);
+
+  // =========================
+  // LOAD DATA
+  // =========================
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      await Promise.all([
+        fetchEmployees(),
+        fetchRoles(),
+      ]);
+    } catch (err) {
+      console.error('Error loading employee data:', err);
+
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Unable to load employee data.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchEmployees, fetchRoles]);
+
+  useEffect(() => {
+    // Initial employee data load intentionally updates component state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
+  }, [loadData]);
 
   // =========================
   // RESET ADD FORM
+
   // =========================
 
   const resetAddForm = () => {

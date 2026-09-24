@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface Employee {
@@ -51,7 +51,6 @@ const getReadableError = (error: unknown) => {
 export default function TimeOffRequests({
   onBack,
   userRole,
-  userEmail,
 }: {
   onBack: () => void;
   userRole: string;
@@ -99,11 +98,7 @@ export default function TimeOffRequests({
   const [reason, setReason] =
     useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -124,7 +119,7 @@ export default function TimeOffRequests({
         );
       }
 
-      let employeesData: any[] = [];
+      let employeesData: Employee[] = [];
 
       if (canManage) {
         const {
@@ -226,7 +221,14 @@ export default function TimeOffRequests({
     } finally {
       setLoading(false);
     }
-  };
+  }, [canManage]);
+
+  useEffect(() => {
+    // Initial data loading is intentionally triggered by this effect.
+    // The loader updates local UI state while synchronizing with Supabase.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
+  }, [loadData]);
 
   const [authEmployeeId, setAuthEmployeeId] =
     useState<number | null>(null);

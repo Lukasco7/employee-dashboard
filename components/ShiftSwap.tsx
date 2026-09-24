@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface Employee {
@@ -129,12 +129,7 @@ export default function ShiftSwap({
     setTargetShiftLoading,
   ] = useState(false);
 
-  useEffect(() => {
-    loadData();
-    resolveCurrentEmployee();
-  }, []);
-
-  const resolveCurrentEmployee =
+  const resolveCurrentEmployee = useCallback(
     async () => {
       try {
         const {
@@ -213,9 +208,11 @@ export default function ShiftSwap({
         );
         setCurrentEmployeeId(null);
       }
-    };
+    },
+    [userEmail]
+  );
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -352,7 +349,26 @@ export default function ShiftSwap({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initialize = async () => {
+      await Promise.all([
+        loadData(),
+        resolveCurrentEmployee(),
+      ]);
+
+      if (cancelled) return;
+    };
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadData, resolveCurrentEmployee]);
 
   const myShifts = useMemo(() => {
     if (

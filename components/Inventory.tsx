@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -72,11 +71,7 @@ export default function Inventory({
   // LOAD DATA
   // =========================
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -196,7 +191,13 @@ export default function Inventory({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial inventory load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
+  }, [loadData]);
 
   // =========================
   // SELECTED PRODUCT
@@ -1031,9 +1032,10 @@ export default function Inventory({
                         </td>
 
                         <td className="px-5 py-4 text-sm text-gray-600">
-                          {formatCurrency(
-                            Number(product.price) || 0
-                          )}
+                          $
+                          {Number(
+                            product.price
+                          ).toFixed(2)}
                         </td>
 
                         <td className="px-5 py-4 text-sm font-semibold text-gray-800">

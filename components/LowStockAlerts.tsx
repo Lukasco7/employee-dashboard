@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface Product {
   id: number;
   name: string;
+  sku: string | null;
   stock: number;
   reorder_threshold: number;
   category: string | null;
@@ -18,36 +19,6 @@ interface AlertItem extends Product {
   severity: Severity;
 }
 
-const makeReadableError = (err: unknown) => {
-  if (!err) {
-    return 'Unknown database error.';
-  }
-
-  if (err instanceof Error) {
-    return err.message;
-  }
-
-  try {
-    const serialized = JSON.stringify(
-      err,
-      Object.getOwnPropertyNames(err),
-      2
-    );
-
-    if (
-      serialized &&
-      serialized !== '{}' &&
-      serialized !== 'null'
-    ) {
-      return serialized;
-    }
-  } catch {
-    // Ignore serialization errors.
-  }
-
-  return String(err);
-};
-
 export default function LowStockAlerts({
   onBack,
   onInventory,
@@ -57,22 +28,13 @@ export default function LowStockAlerts({
   onInventory: () => void;
   onProducts: () => void;
 }) {
-  const [products, setProducts] =
-    useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filter, setFilter] = useState<Filter>('All');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-  const [filter, setFilter] =
-    useState<Filter>('All');
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [error, setError] =
-    useState('');
-
-  const loadProducts = async (
+  const loadProducts = useCallback(async (
     background = false
   ) => {
     try {
@@ -84,133 +46,62 @@ export default function LowStockAlerts({
 
       setError('');
 
-      console.log(
-        '[LowStockAlerts] Starting product query...'
-      );
-
-      // Confirm that the browser still has a Supabase session.
-      const {
-        data: sessionData,
-        error: sessionError,
-      } =
-        await supabase.auth.getSession();
-
-      if (sessionError) {
-        throw new Error(
-          `Authentication error: ${makeReadableError(
-            sessionError
-          )}`
-        );
-      }
-
-      if (!sessionData.session) {
-        throw new Error(
-          'No active Supabase session. Please log out and log in again.'
-        );
-      }
-
-      console.log(
-        '[LowStockAlerts] Authenticated as:',
-        sessionData.session.user.email
-      );
-
-      const {
-        data,
-        error: productsError,
-        status,
-        statusText,
-      } = await supabase
-        .from('products')
-        .select(
-          'id, name, stock, reorder_threshold, category'
-        )
-        .order('name', {
-          ascending: true,
-        });
+      const { data, error: productsError } =
+        await supabase
+          .from('products')
+          .select(
+            'id, name, sku, stock, reorder_threshold, category'
+          )
+          .order('name', {
+            ascending: true,
+          });
 
       if (productsError) {
-        const readable =
-          makeReadableError(
-            productsError
-          );
-
-        console.error(
-          '[LowStockAlerts] Supabase error:',
-          readable,
-          {
-            code: productsError.code,
-            message: productsError.message,
-            details: productsError.details,
-            hint: productsError.hint,
-            status,
-            statusText,
-          }
-        );
-
-        throw new Error(
-          `Products query failed${
-            productsError.code
-              ? ` (${productsError.code})`
-              : ''
-          }: ${
-            productsError.message ||
-            readable
-          }`
-        );
+        throw productsError;
       }
 
-      console.log(
-        '[LowStockAlerts] Products loaded:',
-        data
-      );
-
-      const loadedProducts: Product[] =
-        (data || []).map(
-          (product) => ({
-            id: Number(product.id),
-            name:
-              product.name ||
-              'Unnamed Product',
-            stock:
-              Number(product.stock) || 0,
-            reorder_threshold:
-              Number(
-                product.reorder_threshold ??
-                  10
-              ),
-            category:
-              product.category ||
-              null,
-          })
-        );
-
       setProducts(
-        loadedProducts
+        (data || []).map((product) => ({
+          id: Number(product.id),
+          name:
+            product.name ||
+            'Unnamed Product',
+          sku:
+            product.sku || null,
+          stock: Number(product.stock || 0),
+          reorder_threshold:
+            Number(
+              product.reorder_threshold || 0
+            ),
+          category:
+            product.category || null,
+        }))
       );
     } catch (err) {
       console.error(
-        '[LowStockAlerts] Load failed:',
-        makeReadableError(err),
+        'Low stock alert load error:',
         err
       );
 
       setError(
-        makeReadableError(err)
+        err instanceof Error
+          ? err.message
+          : 'Unable to load low-stock alerts.'
       );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadProducts();
+    // Initial data load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadProducts();
 
     const channel =
       supabase
-        .channel(
-          'low-stock-alerts'
-        )
+        .channel('low-stock-alerts')
         .on(
           'postgres_changes',
           {
@@ -219,7 +110,7 @@ export default function LowStockAlerts({
             table: 'products',
           },
           () => {
-            loadProducts(true);
+            void loadProducts(true);
           }
         )
         .subscribe();
@@ -229,11 +120,9 @@ export default function LowStockAlerts({
         channel
       );
     };
-  }, []);
+  }, [loadProducts]);
 
-  const alerts = useMemo<
-    AlertItem[]
-  >(() => {
+  const alerts = useMemo<AlertItem[]>(() => {
     return products
       .filter(
         (product) =>
@@ -243,45 +132,43 @@ export default function LowStockAlerts({
       .map((product) => ({
         ...product,
         severity:
-          product.stock <= 0 ||
-          product.stock <=
-            Math.max(
-              1,
-              Math.floor(
-                product.reorder_threshold /
-                  2
-              )
-            )
+          product.stock <= 0
             ? 'Critical'
-            : 'Warning',
+            : product.stock <=
+                Math.max(
+                  1,
+                  Math.floor(
+                    product.reorder_threshold /
+                      2
+                  )
+                )
+              ? 'Critical'
+              : 'Warning',
       }));
   }, [products]);
 
-  const visibleAlerts = useMemo(
-    () =>
-      filter === 'All'
-        ? alerts
-        : alerts.filter(
-            (alert) =>
-              alert.severity ===
-              filter
-          ),
-    [alerts, filter]
-  );
+  const visibleAlerts = useMemo(() => {
+    if (filter === 'All') {
+      return alerts;
+    }
 
-  const warningCount =
-    alerts.filter(
+    return alerts.filter(
       (alert) =>
-        alert.severity ===
-        'Warning'
-    ).length;
+        alert.severity === filter
+    );
+  }, [alerts, filter]);
 
-  const criticalCount =
-    alerts.filter(
-      (alert) =>
-        alert.severity ===
-        'Critical'
-    ).length;
+  const warningCount = alerts.filter(
+    (alert) =>
+      alert.severity === 'Warning'
+  ).length;
+
+  const criticalCount = alerts.filter(
+    (alert) =>
+      alert.severity === 'Critical'
+  ).length;
+
+  const badgeCount = alerts.length;
 
   const severityClass = (
     severity: Severity
@@ -307,9 +194,9 @@ export default function LowStockAlerts({
                 Low Stock Alerts
               </h1>
 
-              {alerts.length > 0 && (
+              {badgeCount > 0 && (
                 <span className="min-w-7 h-7 px-2 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center">
-                  {alerts.length}
+                  {badgeCount}
                 </span>
               )}
             </div>
@@ -346,41 +233,19 @@ export default function LowStockAlerts({
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {error && (
-          <div className="bg-red-100 border border-red-200 text-red-800 rounded-xl p-5 mb-6">
-            <p className="font-bold">
-              Low Stock Alerts could not load
+          <div className="bg-red-100 border border-red-200 text-red-700 rounded-xl p-4 mb-6">
+            <p className="font-semibold">
+              Low Stock Alert Error
             </p>
-
-            <p className="text-sm mt-2 whitespace-pre-wrap break-words">
+            <p className="text-sm mt-1">
               {error}
             </p>
-
-            <div className="mt-4 bg-white/70 rounded-lg p-4 text-sm">
-              <p className="font-semibold">
-                Check these in Supabase:
-              </p>
-
-              <p className="mt-2">
-                1. The <code>products</code> table exists.
-              </p>
-
-              <p className="mt-1">
-                2. The <code>reorder_threshold</code> column exists.
-              </p>
-
-              <p className="mt-1">
-                3. Your logged-in user has permission to read <code>products</code>.
-              </p>
-            </div>
-
             <button
               type="button"
-              onClick={() =>
-                loadProducts()
-              }
-              className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold cursor-pointer"
+              onClick={() => loadProducts()}
+              className="mt-3 text-sm font-semibold underline cursor-pointer"
             >
-              Try Again
+              Try again
             </button>
           </div>
         )}
@@ -391,7 +256,7 @@ export default function LowStockAlerts({
               Active Alerts
             </p>
             <p className="text-3xl font-bold text-red-600 mt-2">
-              {alerts.length}
+              {badgeCount}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               Products at or below threshold
@@ -458,18 +323,18 @@ export default function LowStockAlerts({
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {[
-                'All',
-                'Warning',
-                'Critical',
-              ].map((option) => (
+              {(
+                [
+                  'All',
+                  'Warning',
+                  'Critical',
+                ] as Filter[]
+              ).map((option) => (
                 <button
                   key={option}
                   type="button"
                   onClick={() =>
-                    setFilter(
-                      option as Filter
-                    )
+                    setFilter(option)
                   }
                   className={`px-4 py-2 rounded-lg text-sm font-semibold border cursor-pointer ${
                     filter === option
@@ -489,8 +354,7 @@ export default function LowStockAlerts({
                 Checking stock levels...
               </p>
             </div>
-          ) : visibleAlerts.length ===
-            0 ? (
+          ) : visibleAlerts.length === 0 ? (
             <div className="p-12 text-center bg-green-50 rounded-2xl border border-green-100">
               <div className="text-5xl mb-4">
                 ✅
@@ -539,7 +403,12 @@ export default function LowStockAlerts({
                           </div>
 
                           <p className="text-sm text-gray-500 mt-1">
-                            {alert.category || 'Uncategorized'}
+                            SKU:{' '}
+                            {alert.sku ||
+                              'Not assigned'}
+                            {alert.category
+                              ? ` • ${alert.category}`
+                              : ''}
                           </p>
                         </div>
                       </div>
@@ -565,13 +434,15 @@ export default function LowStockAlerts({
                             Reorder At
                           </p>
                           <p className="text-xl font-bold text-gray-800 mt-1">
-                            {alert.reorder_threshold}
+                            {
+                              alert.reorder_threshold
+                            }
                           </p>
                         </div>
 
                         <div className="bg-white/80 rounded-xl border border-gray-200 px-4 py-3">
                           <p className="text-xs text-gray-500">
-                            Units Below
+                            Difference
                           </p>
                           <p className="text-xl font-bold text-red-600 mt-1">
                             {Math.max(

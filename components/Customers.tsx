@@ -1,17 +1,7 @@
 'use client';
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import type { FormEvent } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface Customer {
   id: number;
@@ -36,6 +26,18 @@ interface Sale {
   } | null;
 }
 
+interface CustomerSaleRow {
+  id: number;
+  product_id: number;
+  amount: number | string;
+  quantity: number | string;
+  sale_date: string;
+  products:
+    | { name: string }[]
+    | { name: string }
+    | null;
+}
+
 interface CustomerForm {
   first_name: string;
   last_name: string;
@@ -50,11 +52,9 @@ const inputClass =
 export default function Customers({
   onBack,
   onSales,
-  onWishlist,
 }: {
   onBack: () => void;
   onSales: () => void;
-  onWishlist?: (customerId: number) => void;
 }) {
   const [customers, setCustomers] =
     useState<Customer[]>([]);
@@ -88,7 +88,7 @@ export default function Customers({
   const [success, setSuccess] =
     useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -154,7 +154,7 @@ export default function Customers({
 
       setSales(
         (salesResult.data || []).map(
-          (sale: any) => ({
+          (sale: CustomerSaleRow) => ({
             id: Number(sale.id),
             product_id:
               Number(sale.product_id),
@@ -173,23 +173,25 @@ export default function Customers({
       );
     } catch (err) {
       console.error(
-        'Error loading customer data:',
+        'Customer load error:',
         err
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : 'Unable to load customer data.'
+          : 'Unable to load customers.'
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Initial customer load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
+  }, [loadData]);
 
   const filteredCustomers = useMemo(() => {
     const term =
@@ -222,6 +224,13 @@ export default function Customers({
         customer.id === selectedCustomerId
     ) || null;
 
+  const selectedCustomerSales =
+    selectedCustomer
+      ? sales.filter((sale) => {
+          return false;
+        })
+      : [];
+
   const customerInitials = (
     customer: Customer
   ) => {
@@ -250,37 +259,9 @@ export default function Customers({
     });
   };
 
-  const generateCustomerCode = (
-    existingCustomers: Customer[]
-  ) => {
-    const highestNumber =
-      existingCustomers.reduce(
-        (highest, customer) => {
-          const match =
-            /^CUST-(\\d+)$/i.exec(
-              customer.customer_code || ''
-            );
-
-          if (!match) {
-            return highest;
-          }
-
-          return Math.max(
-            highest,
-            Number(match[1])
-          );
-        },
-        0
-      );
-
-    return `CUST-${String(
-      highestNumber + 1
-    ).padStart(6, '0')}`;
-  };
-
   const handleCreateCustomer = async (
-  event: FormEvent<HTMLFormElement>
-) => {
+    event: React.FormEvent
+  ) => {
     event.preventDefault();
 
     setError('');
@@ -321,21 +302,10 @@ export default function Customers({
     try {
       setSaving(true);
 
-      // The customer code is unique. Because this page can have
-      // stale data (for example, another user created a customer
-      // after this page loaded), retry with the next available code
-      // when PostgreSQL reports a duplicate customer_code.
-      let customerCode =
-        generateCustomerCode(customers);
-
-      let data;
-      let insertError;
-
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const result = await supabase
+      const { data, error: insertError } =
+        await supabase
           .from('customers')
           .insert({
-            customer_code: customerCode,
             first_name: firstName,
             last_name: lastName,
             phone,
@@ -348,48 +318,8 @@ export default function Customers({
           )
           .single();
 
-        data = result.data;
-        insertError = result.error;
-
-        if (!insertError) {
-          break;
-        }
-
-        const isCustomerCodeConflict =
-          insertError.code === '23505' &&
-          (
-            insertError.message || ''
-          ).includes(
-            'customers_customer_code_key'
-          );
-
-        if (!isCustomerCodeConflict) {
-          throw insertError;
-        }
-
-        const codeMatch =
-          /^CUST-(\d+)$/i.exec(
-            customerCode
-          );
-
-        const nextNumber =
-          codeMatch
-            ? Number(codeMatch[1]) + 1
-            : customers.length + attempt + 2;
-
-        customerCode = `CUST-${String(
-          nextNumber
-        ).padStart(6, '0')}`;
-      }
-
       if (insertError) {
         throw insertError;
-      }
-
-      if (!data) {
-        throw new Error(
-          'Customer was not created.'
-        );
       }
 
       const createdCustomer: Customer =
@@ -433,51 +363,17 @@ export default function Customers({
         `${createdCustomer.first_name} ${createdCustomer.last_name} was created successfully.`
       );
     } catch (err) {
-    const supabaseError = err as {
-      message?: string;
-      details?: string;
-      hint?: string;
-      code?: string;
-      status?: number;
-    };
+      console.error(
+        'Create customer error:',
+        err
+      );
 
-    const errorMessage =
-      err instanceof Error
-        ? err.message
-        : supabaseError?.message ||
-          supabaseError?.details ||
-          supabaseError?.hint ||
-          'Unable to create customer.';
-
-    console.error(
-      'CREATE CUSTOMER ERROR MESSAGE:',
-      errorMessage
-    );
-    console.error(
-      'CREATE CUSTOMER ERROR DETAILS:',
-      supabaseError?.details ?? ''
-    );
-    console.error(
-      'CREATE CUSTOMER ERROR HINT:',
-      supabaseError?.hint ?? ''
-    );
-    console.error(
-      'CREATE CUSTOMER ERROR CODE:',
-      supabaseError?.code ?? ''
-    );
-    console.error(
-      'CREATE CUSTOMER ERROR STATUS:',
-      supabaseError?.status ?? ''
-    );
-    console.error(
-      'CREATE CUSTOMER ERROR FULL:',
-      JSON.stringify(err, null, 2)
-    );
-
-    setError(
-      `Unable to create customer: ${errorMessage}`
-    );
-  } finally {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to create customer.'
+      );
+    } finally {
       setSaving(false);
     }
   };
@@ -872,27 +768,13 @@ export default function Customers({
                     </p>
                   </div>
 
-                  <div className={`grid grid-cols-1 ${onWishlist ? 'sm:grid-cols-2' : ''} gap-3`}>
-                    {onWishlist && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onWishlist(selectedCustomer.id)
-                        }
-                        className="w-full bg-pink-600 text-white px-5 py-3 rounded-lg hover:bg-pink-700 transition font-semibold cursor-pointer"
-                      >
-                        ❤️ Wishlists
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={onSales}
-                      className="w-full bg-orange-600 text-white px-5 py-3 rounded-lg hover:bg-orange-700 transition font-semibold cursor-pointer"
-                    >
-                      🧾 View Sales
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={onSales}
+                    className="w-full bg-orange-600 text-white px-5 py-3 rounded-lg hover:bg-orange-700 transition font-semibold cursor-pointer"
+                  >
+                    🧾 View Sales
+                  </button>
                 </div>
               </>
             )}

@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -35,11 +34,7 @@ export default function Analytics({
   // LOAD SALES + PRODUCTS
   // =========================
 
-  useEffect(() => {
-    fetchSales();
-  }, []);
-
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -155,7 +150,13 @@ export default function Analytics({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchSales();
+  }, [fetchSales]);
 
   // =========================
   // TOTAL REVENUE
@@ -366,7 +367,7 @@ export default function Analytics({
                 </p>
 
                 <p className="text-3xl font-bold text-purple-600 mt-2">
-                  {formatCurrency(totalRevenue)}
+                  ${totalRevenue.toFixed(2)}
                 </p>
               </div>
 
@@ -396,7 +397,7 @@ export default function Analytics({
                 </p>
 
                 <p className="text-3xl font-bold text-green-600 mt-2">
-                  {formatCurrency(averageSale)}
+                  ${averageSale.toFixed(2)}
                 </p>
               </div>
 
@@ -458,7 +459,7 @@ export default function Analytics({
                             </p>
 
                             <p className="text-sm text-purple-600">
-                              {formatCurrency(item.revenue)}
+                              ${item.revenue.toFixed(2)}
                             </p>
 
                           </div>
@@ -501,7 +502,7 @@ export default function Analytics({
                         </p>
 
                         <p className="font-bold text-purple-600">
-                          {formatCurrency(revenue)}
+                          ${revenue.toFixed(2)}
                         </p>
 
                       </div>
@@ -590,9 +591,10 @@ export default function Analytics({
                               </td>
 
                               <td className="px-4 py-4 text-sm font-semibold text-purple-600">
-                                {formatCurrency(
+                                $
+                                {Number(
                                   sale.amount || 0
-                                )}
+                                ).toFixed(2)}
                               </td>
 
                               <td className="px-4 py-4 text-sm text-gray-600">

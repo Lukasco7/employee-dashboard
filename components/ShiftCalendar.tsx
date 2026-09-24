@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface Shift {
@@ -56,11 +56,7 @@ export default function ShiftCalendar({
   const isEmployee =
     normalizedRole === 'employee';
 
-  useEffect(() => {
-    loadCalendarData();
-  }, []);
-
-  const loadCalendarData = async () => {
+  const loadCalendarData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -153,7 +149,13 @@ export default function ShiftCalendar({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial data load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadCalendarData();
+  }, [loadCalendarData]);
 
   const getEmployeeName = (
     employeeId: number
@@ -266,26 +268,27 @@ export default function ShiftCalendar({
     );
   };
 
-  const employeeMatchesCurrentUser = (
-    employeeId: number
-  ) => {
-    const employee =
-      employees.find(
-        (item) =>
-          item.id === employeeId
+  const employeeMatchesCurrentUser = useCallback(
+    (employeeId: number) => {
+      const employee =
+        employees.find(
+          (item) =>
+            item.id === employeeId
+        );
+
+      if (!employee) {
+        return false;
+      }
+
+      return (
+        employee.email
+          .trim()
+          .toLowerCase() ===
+        userEmail.trim().toLowerCase()
       );
-
-    if (!employee) {
-      return false;
-    }
-
-    return (
-      employee.email
-        .trim()
-        .toLowerCase() ===
-      userEmail.trim().toLowerCase()
-    );
-  };
+    },
+    [employees, userEmail]
+  );
 
   const visibleShifts = useMemo(() => {
     if (!isEmployee) {
@@ -299,9 +302,8 @@ export default function ShiftCalendar({
     );
   }, [
     shifts,
-    employees,
     isEmployee,
-    userEmail,
+    employeeMatchesCurrentUser,
   ]);
 
   const shiftsByDate = useMemo(() => {
@@ -329,16 +331,6 @@ export default function ShiftCalendar({
         currentDate.getFullYear(),
         currentDate.getMonth(),
         1
-      ),
-    [currentDate]
-  );
-
-  const monthEnd = useMemo(
-    () =>
-      new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        0
       ),
     [currentDate]
   );

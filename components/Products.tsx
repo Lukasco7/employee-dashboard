@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 
@@ -57,11 +57,7 @@ export default function Products({
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -87,7 +83,13 @@ export default function Products({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial product load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchProducts();
+  }, [fetchProducts]);
 
   // =========================
   // ADD PRODUCT

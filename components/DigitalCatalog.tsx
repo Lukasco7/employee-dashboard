@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -35,11 +34,7 @@ export default function DigitalCatalog({
   const inputClass =
     'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -78,7 +73,13 @@ export default function DigitalCatalog({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial catalog load is intentionally triggered once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchProducts();
+  }, [fetchProducts]);
 
   const categories = useMemo(
     () =>
@@ -328,7 +329,7 @@ export default function DigitalCatalog({
                     <div>
                       <p className="text-xs text-gray-500">Price</p>
                       <p className="text-xl font-bold text-purple-600">
-                        {formatCurrency(product.price)}
+                        ${formatPrice(product.price)}
                       </p>
                     </div>
 
@@ -385,7 +386,7 @@ export default function DigitalCatalog({
                 <div>
                   <p className="text-sm text-gray-500">Price</p>
                   <p className="font-semibold text-purple-600 mt-1">
-                    {formatCurrency(selectedProduct.price)}
+                    ${formatPrice(selectedProduct.price)}
                   </p>
                 </div>
 

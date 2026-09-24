@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 
@@ -64,11 +64,7 @@ export default function Dashboard({
   const [loading, setLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setDashboardError('');
@@ -152,7 +148,13 @@ export default function Dashboard({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initial dashboard data load intentionally updates component state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchDashboardData();
+  }, [fetchDashboardData]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -190,7 +192,7 @@ export default function Dashboard({
             Welcome, {user}! 👋
           </h2>
           <p className="text-gray-600 mt-2">
-            Here's your dashboard overview for today.
+            Here&apos;s your dashboard overview for today.
           </p>
           <p className="text-sm text-blue-600 font-semibold mt-2">
             Signed in as: {role || 'Unknown Role'}

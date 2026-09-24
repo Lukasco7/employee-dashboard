@@ -107,7 +107,6 @@ export default function CommunicationScheduling({
         : '';
 
       if (storedRole) {
-        setCurrentRole(storedRole);
         return storedRole;
       }
     } catch {
@@ -143,7 +142,6 @@ export default function CommunicationScheduling({
     }
 
     if (!userRow?.role_id) {
-      setCurrentRole('');
       return '';
     }
 
@@ -166,7 +164,6 @@ export default function CommunicationScheduling({
       .toLowerCase()
       .trim();
 
-    setCurrentRole(role);
     return role;
   };
 
@@ -289,16 +286,32 @@ export default function CommunicationScheduling({
   };
 
   useEffect(() => {
-    fetchCurrentRole()
-      .catch((err) => {
+    let cancelled = false;
+
+    const initialize = async () => {
+      try {
+        const role = await fetchCurrentRole();
+
+        if (!cancelled) {
+          setCurrentRole(role);
+        }
+      } catch (err) {
         console.error(
           'Role loading error:',
           err
         );
-      })
-      .finally(() => {
-        fetchData();
-      });
+      }
+
+      if (!cancelled) {
+        await fetchData();
+      }
+    };
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const employeeName = (employeeId: number) => {
