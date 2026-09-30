@@ -26,9 +26,13 @@ export default function Login({ onLogin }: LoginProps) {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [rolesLoading, setRolesLoading] =
-    useState(false);
+  const [roles] = useState<Role[]>([
+  {
+    id: 0,
+    name: 'Employee',
+  },
+]);
+const [rolesLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -39,74 +43,13 @@ export default function Login({ onLogin }: LoginProps) {
   // =========================
 
   useEffect(() => {
-    if (!isSignUp) {
-      return;
-    }
+  if (!isSignUp) {
+    return;
+  }
 
-    const loadRoles = async () => {
-      try {
-        setRolesLoading(true);
-
-        const { data, error: rolesError } =
-          await supabase
-            .from('roles')
-            .select('id, name')
-            .order('id', {
-              ascending: true,
-            });
-
-        if (rolesError) {
-          throw rolesError;
-        }
-
-        const loadedRoles = (data || []).map(
-          (role) => ({
-            id: Number(role.id),
-            name: role.name,
-          })
-        );
-
-        setRoles(loadedRoles);
-
-        const employeeRole =
-          loadedRoles.find(
-            (role) =>
-              role.name.toLowerCase() ===
-              'employee'
-          );
-
-        if (employeeRole) {
-          setSelectedRole(
-            employeeRole.name
-          );
-        } else if (loadedRoles[0]) {
-          setSelectedRole(
-            loadedRoles[0].name
-          );
-        }
-      } catch (err) {
-        console.error(
-          'Role loading error:',
-          err
-        );
-
-        // Keep the form usable even if roles
-        // cannot be loaded.
-        setRoles([
-          {
-            id: 0,
-            name: 'Employee',
-          },
-        ]);
-
-        setSelectedRole('Employee');
-      } finally {
-        setRolesLoading(false);
-      }
-    };
-
-    loadRoles();
-  }, [isSignUp]);
+  // Public sign-up accounts always start as Employee.
+  // Privileged roles are assigned by an administrator.
+}, [isSignUp]);
 
   // =========================
   // SUBMIT
