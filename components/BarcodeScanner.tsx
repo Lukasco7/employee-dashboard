@@ -19,6 +19,8 @@ interface Product {
 interface BarcodeScannerProps {
   onBack: () => void;
   onProducts: () => void;
+  onAddToSale: (product: Product) => void;
+  autoStartCamera?: boolean;
 }
 
 type ScannerState =
@@ -32,6 +34,8 @@ const LOW_STOCK_THRESHOLD = 10;
 export default function BarcodeScanner({
   onBack,
   onProducts,
+  onAddToSale,
+  autoStartCamera = true,
 }: BarcodeScannerProps) {
   const cameraScannerRef =
     useRef<Html5Qrcode | null>(null);
@@ -40,6 +44,9 @@ export default function BarcodeScanner({
     useRef<Html5Qrcode | null>(null);
 
   const processingScanRef =
+    useRef(false);
+
+  const autoStartCameraRef =
     useRef(false);
 
   const [scannerState, setScannerState] =
@@ -171,14 +178,15 @@ export default function BarcodeScanner({
   // =========================
 
   const findProductByBarcode = async (
-    barcodeValue: string
+    barcodeValue: string,
+    addToSale = false
   ) => {
     const cleanBarcode =
       barcodeValue.trim();
 
     if (!cleanBarcode) {
       setError(
-        'Please enter or scan a barcode.'
+        'Please enter or scan a product code.'
       );
       return;
     }
@@ -211,7 +219,7 @@ export default function BarcodeScanner({
       // =========================
 
       if (data) {
-        setProduct({
+        const foundProduct: Product = {
           id: Number(data.id),
           name:
             data.name ||
@@ -229,15 +237,23 @@ export default function BarcodeScanner({
             Number(data.stock) || 0,
           barcode:
             data.barcode || null,
-        });
+        };
 
-        setManualBarcode(
-          cleanBarcode
-        );
+        setProduct(foundProduct);
+        setManualBarcode(cleanBarcode);
 
-        setMessage(
-          'Product found in your inventory.'
-        );
+        if (addToSale && foundProduct.stock > 0) {
+          setMessage(
+            'Product found. Adding it to the POS cart...'
+          );
+          onAddToSale(foundProduct);
+        } else {
+          setMessage(
+            foundProduct.stock > 0
+              ? 'Product found in your inventory.'
+              : 'Product found, but it is out of stock.'
+          );
+        }
 
         return;
       }
@@ -448,6 +464,7 @@ export default function BarcodeScanner({
               Html5QrcodeSupportedFormats.CODE_93,
               Html5QrcodeSupportedFormats.CODABAR,
               Html5QrcodeSupportedFormats.ITF,
+              Html5QrcodeSupportedFormats.QR_CODE,
             ],
           }
         );
@@ -458,10 +475,10 @@ export default function BarcodeScanner({
       await scanner.start(
         cameraId,
         {
-          fps: 10,
+          fps: 15,
           qrbox: {
             width: 360,
-            height: 180,
+            height: 220,
           },
           aspectRatio: 1.777778,
           disableFlip: false,
@@ -492,7 +509,8 @@ export default function BarcodeScanner({
           setManualBarcode(barcode);
 
           await findProductByBarcode(
-            barcode
+            barcode,
+            true
           );
         },
         (scanError) => {
@@ -542,6 +560,19 @@ export default function BarcodeScanner({
       setCameraLoading(false);
     }
   };
+
+  // Open the camera automatically when this scanner page is entered.
+  useEffect(() => {
+    if (!autoStartCamera || autoStartCameraRef.current) {
+      return;
+    }
+
+    autoStartCameraRef.current = true;
+
+    // This effect intentionally starts the camera on page entry.
+    void startScanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartCamera]);
 
   // =========================
   // IMAGE SCANNING
@@ -621,7 +652,8 @@ export default function BarcodeScanner({
       );
 
       await findProductByBarcode(
-        decodedText
+        decodedText,
+        true
       );
     } catch (err) {
       console.error(
@@ -669,7 +701,7 @@ export default function BarcodeScanner({
 
     if (!scannedBarcode) {
       setError(
-        'No barcode has been captured.'
+        'No product code has been captured.'
       );
       return;
     }
@@ -903,7 +935,7 @@ export default function BarcodeScanner({
             </h1>
 
             <p className="text-sm text-gray-500 mt-1">
-              Scan a barcode, find the product,
+              Scan a barcode or QR code, find the product,
               or register a new one.
             </p>
           </div>
@@ -1042,9 +1074,8 @@ export default function BarcodeScanner({
           </div>
 
           <p className="text-sm text-gray-500 mt-4">
-            For best results, use a clear printed
-            barcode, good lighting, and keep the
-            barcode steady inside the scan area.
+            For best results, use a clear code, good lighting, and keep the
+            barcode or QR code steady inside the scan area.
           </p>
 
         </div>
@@ -1068,9 +1099,8 @@ export default function BarcodeScanner({
           </h2>
 
           <p className="text-sm text-gray-500 mb-4">
-            Take a clear photo of the barcode and
-            upload it here if the camera scanner
-            has difficulty reading it.
+            Take a clear photo of the barcode or QR code and
+            upload it here if the camera scanner has difficulty reading it.
           </p>
 
           <label className="inline-flex items-center justify-center bg-indigo-100 text-indigo-700 px-5 py-3 rounded-lg hover:bg-indigo-200 transition font-semibold cursor-pointer">
@@ -1101,7 +1131,7 @@ export default function BarcodeScanner({
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
 
           <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Manual Barcode Entry
+            Manual Product Code Entry
           </h2>
 
           <p className="text-sm text-gray-500 mb-4">
@@ -1132,7 +1162,7 @@ export default function BarcodeScanner({
                   e.target.value
                 )
               }
-              placeholder="Enter barcode number"
+              placeholder="Enter barcode or QR value"
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
 
@@ -1192,15 +1222,25 @@ export default function BarcodeScanner({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={
-                  onProducts
-                }
-                className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
-              >
-                View Products
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {onAddToSale && (
+                  <button
+                    type="button"
+                    onClick={() => onAddToSale(product)}
+                    disabled={product.stock <= 0}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    🛒 Add to POS
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onProducts}
+                  className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
+                >
+                  View Products
+                </button>
+              </div>
 
             </div>
 

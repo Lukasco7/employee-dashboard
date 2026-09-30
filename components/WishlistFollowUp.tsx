@@ -96,7 +96,6 @@ export default function WishlistFollowUp({
     useState('');
 
   const loadData = useCallback(async () => {
-    setLoading(true);
     try {
       const [
         customersResult,
@@ -228,16 +227,10 @@ export default function WishlistFollowUp({
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      // This initial async data load intentionally updates React state after the effect schedules it.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void loadData();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [loadData]);
+  // Initial wishlist data load intentionally updates component state.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void loadData();
+}, [loadData]);
 
   const getCustomer = (
     id: number

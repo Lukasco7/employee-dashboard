@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { supabase } from '@/lib/supabase';
+
 import Login from '@/components/Login';
 import Dashboard from '@/components/Dashboard';
 import Products from '@/components/Products';
@@ -45,36 +47,186 @@ export default function Home() {
   const [userRole, setUserRole] =
     useState('');
 
+  const [productToAdd, setProductToAdd] = useState<{
+    id: number;
+    name: string;
+    category: string;
+    price: number | string;
+    stock: number;
+    barcode: string | null;
+  } | null>(null);
+
   const [isLoading, setIsLoading] =
     useState(true);
 
   useEffect(() => {
-    try {
-      const savedUser =
-        localStorage.getItem('user');
+    let cancelled = false;
 
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
+    const restoreSavedUser = async () => {
+      try {
+        const savedUser =
+          localStorage.getItem('user');
 
-        if (user?.loggedIn) {
-          // localStorage is browser-only, so restore the saved session here.
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setUserEmail(user.email || '');
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setUserRole(user.role || '');
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setCurrentPage('dashboard');
+        if (!savedUser) {
+          return;
+        }
+
+        const savedUserData =
+          JSON.parse(savedUser);
+
+        if (
+          !savedUserData?.loggedIn ||
+          cancelled
+        ) {
+          return;
+        }
+
+        /*
+         * Do not trust the role stored in localStorage.
+         *
+         * The browser can contain an old role after an
+         * administrator changes the user's role.
+         *
+         * Instead, get the currently authenticated
+         * Supabase user and load the current role from:
+         *
+         * auth user -> users.role_id -> roles.name
+         */
+
+        const {
+          data: {
+            user: authenticatedUser,
+          },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          throw authError;
+        }
+
+        if (!authenticatedUser) {
+          localStorage.removeItem('user');
+
+          if (!cancelled) {
+            setUserEmail('');
+            setUserRole('');
+            setCurrentPage('login');
+          }
+
+          return;
+        }
+
+        const {
+          data: userData,
+          error: userError,
+        } = await supabase
+          .from('users')
+          .select('id, email, role_id')
+          .eq('id', authenticatedUser.id)
+          .maybeSingle();
+
+        if (userError) {
+          throw userError;
+        }
+
+        if (!userData?.role_id) {
+          await supabase.auth.signOut();
+
+          localStorage.removeItem('user');
+
+          if (!cancelled) {
+            setUserEmail('');
+            setUserRole('');
+            setCurrentPage('login');
+          }
+
+          return;
+        }
+
+        const {
+          data: roleData,
+          error: roleError,
+        } = await supabase
+          .from('roles')
+          .select('id, name')
+          .eq('id', userData.role_id)
+          .maybeSingle();
+
+        if (roleError) {
+          throw roleError;
+        }
+
+        if (!roleData?.name) {
+          await supabase.auth.signOut();
+
+          localStorage.removeItem('user');
+
+          if (!cancelled) {
+            setUserEmail('');
+            setUserRole('');
+            setCurrentPage('login');
+          }
+
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const currentEmail =
+          authenticatedUser.email ||
+          userData.email ||
+          savedUserData.email ||
+          '';
+
+        const currentRole =
+          roleData.name;
+
+        setUserEmail(currentEmail);
+        setUserRole(currentRole);
+
+        /*
+         * Update localStorage with the CURRENT role.
+         * This prevents the old role from remaining in
+         * the browser after the database role changes.
+         */
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            email: currentEmail,
+            role: currentRole,
+            loggedIn: true,
+          })
+        );
+
+        setCurrentPage('dashboard');
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          'Unable to restore authenticated user:',
+          error
+        );
+
+        localStorage.removeItem('user');
+        setUserEmail('');
+        setUserRole('');
+        setCurrentPage('login');
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
         }
       }
-    } catch (error) {
-      console.error(
-        'Invalid saved user:',
-        error
-      );
-      localStorage.removeItem('user');
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    void restoreSavedUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogin = (
@@ -97,9 +249,13 @@ export default function Home() {
   };
 
   const handleLogout = () => {
+    void supabase.auth.signOut();
+
     localStorage.removeItem('user');
+
     setUserEmail('');
     setUserRole('');
+    setProductToAdd(null);
     setCurrentPage('login');
   };
 
@@ -118,14 +274,30 @@ export default function Home() {
   const handleAnalytics = () =>
     setCurrentPage('analytics');
 
-  const handleSales = () =>
+  const handleSales = () => {
+    setProductToAdd(null);
     setCurrentPage('sales');
+  };
 
   const handleInventory = () =>
     setCurrentPage('inventory');
 
   const handleBarcode = () =>
     setCurrentPage('barcode');
+
+  const handleAddScannedProductToSale = (
+    product: {
+      id: number;
+      name: string;
+      category: string;
+      price: number | string;
+      stock: number;
+      barcode: string | null;
+    }
+  ) => {
+    setProductToAdd(product);
+    setCurrentPage('sales');
+  };
 
   const handleCommunication = () =>
     setCurrentPage('communication');
@@ -211,8 +383,10 @@ export default function Home() {
       {currentPage === 'sales' && (
         <Sales
           onBack={handleBackToDashboard}
+          onBarcode={handleBarcode}
           userRole={userRole}
           userEmail={userEmail}
+          productToAdd={productToAdd}
         />
       )}
 
@@ -226,6 +400,10 @@ export default function Home() {
         <BarcodeScanner
           onBack={handleBackToDashboard}
           onProducts={handleProducts}
+          onAddToSale={
+            handleAddScannedProductToSale
+          }
+          autoStartCamera
         />
       )}
 

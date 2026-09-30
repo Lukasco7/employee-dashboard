@@ -15,29 +15,6 @@ interface Customer {
   created_at: string;
 }
 
-interface Sale {
-  id: number;
-  product_id: number;
-  amount: number;
-  quantity: number;
-  sale_date: string;
-  product?: {
-    name: string;
-  } | null;
-}
-
-interface CustomerSaleRow {
-  id: number;
-  product_id: number;
-  amount: number | string;
-  quantity: number | string;
-  sale_date: string;
-  products:
-    | { name: string }[]
-    | { name: string }
-    | null;
-}
-
 interface CustomerForm {
   first_name: string;
   last_name: string;
@@ -58,9 +35,6 @@ export default function Customers({
 }) {
   const [customers, setCustomers] =
     useState<Customer[]>([]);
-  const [sales, setSales] =
-    useState<Sale[]>([]);
-
   const [search, setSearch] =
     useState('');
   const [selectedCustomerId, setSelectedCustomerId] =
@@ -93,41 +67,24 @@ export default function Customers({
       setLoading(true);
       setError('');
 
-      const [customersResult, salesResult] =
-        await Promise.all([
-          supabase
-            .from('customers')
-            .select(
-              'id, customer_code, first_name, last_name, phone, email, notes, loyalty_points, created_at'
-            )
-            .order('created_at', {
-              ascending: false,
-            }),
+      const { data: customersData, error: customersError } =
+        await supabase
+          .from('customers')
+          .select(
+            'id, customer_code, first_name, last_name, phone, email, notes, loyalty_points, created_at'
+          )
+          .order('created_at', {
+            ascending: false,
+          });
 
-          supabase
-            .from('sales')
-            .select(
-              'id, product_id, amount, quantity, sale_date, products(name)'
-            )
-            .order('sale_date', {
-              ascending: false,
-            }),
-        ]);
-
-      if (customersResult.error) {
+      if (customersError) {
         throw new Error(
-          `Customers: ${customersResult.error.message}`
-        );
-      }
-
-      if (salesResult.error) {
-        throw new Error(
-          `Sales: ${salesResult.error.message}`
+          `Customers: ${customersError.message}`
         );
       }
 
       setCustomers(
-        (customersResult.data || []).map(
+        (customersData || []).map(
           (customer) => ({
             id: Number(customer.id),
             customer_code:
@@ -152,25 +109,6 @@ export default function Customers({
         )
       );
 
-      setSales(
-        (salesResult.data || []).map(
-          (sale: CustomerSaleRow) => ({
-            id: Number(sale.id),
-            product_id:
-              Number(sale.product_id),
-            amount:
-              Number(sale.amount || 0),
-            quantity:
-              Number(sale.quantity || 0),
-            sale_date:
-              sale.sale_date,
-            product:
-              Array.isArray(sale.products)
-                ? sale.products[0] || null
-                : sale.products || null,
-          })
-        )
-      );
     } catch (err) {
       console.error(
         'Customer load error:',
@@ -223,13 +161,6 @@ export default function Customers({
       (customer) =>
         customer.id === selectedCustomerId
     ) || null;
-
-  const selectedCustomerSales =
-    selectedCustomer
-      ? sales.filter((sale) => {
-          return false;
-        })
-      : [];
 
   const customerInitials = (
     customer: Customer

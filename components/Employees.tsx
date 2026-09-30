@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -38,8 +39,63 @@ export default function Employees({
   onBack,
   userRole,
 }: EmployeesProps) {
+  const [resolvedUserRole, setResolvedUserRole] =
+    useState(userRole || '');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCurrentRole = async () => {
+      // Use the role supplied by the parent immediately, then verify it
+      // against the authenticated user's current database role.
+      let currentRole = (userRole || '').trim();
+
+      try {
+        const { data: { user } } =
+          await supabase.auth.getUser();
+
+        if (user) {
+          const { data: userData } =
+            await supabase
+              .from('users')
+              .select('role_id')
+              .eq('id', user.id)
+              .maybeSingle();
+
+          if (userData?.role_id) {
+            const { data: roleData } =
+              await supabase
+                .from('roles')
+                .select('name')
+                .eq('id', userData.role_id)
+                .maybeSingle();
+
+            if (roleData?.name) {
+              currentRole = roleData.name;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(
+          'Unable to verify current employee-management role:',
+          error
+        );
+      }
+
+      if (!cancelled) {
+        setResolvedUserRole(currentRole);
+      }
+    };
+
+    void resolveCurrentRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userRole]);
+
   const normalizedRole =
-    (userRole || '').trim().toLowerCase();
+    resolvedUserRole.trim().toLowerCase();
 
   const canAddEmployee =
     normalizedRole === 'admin' ||
@@ -52,10 +108,6 @@ export default function Employees({
 
   const canDeleteEmployee =
     normalizedRole === 'admin';
-  // =========================
-  // DATA
-  // =========================
-
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
 
@@ -71,6 +123,8 @@ export default function Employees({
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] =
+    useState<Employee | null>(null);
+  const [viewingEmployee, setViewingEmployee] =
     useState<Employee | null>(null);
 
   // =========================
@@ -413,61 +467,6 @@ export default function Employees({
     } finally {
       setSaving(false);
     }
-  };
-
-  // =========================
-  // START EDIT
-  // =========================
-
-  const startEditing = (
-    employee: Employee
-  ) => {
-    setEditingEmployee(employee);
-
-    setEditEmployeeCode(
-      employee.employee_code || ''
-    );
-    setEditFirstName(
-      employee.first_name || ''
-    );
-    setEditLastName(
-      employee.last_name || ''
-    );
-    setEditEmail(
-      employee.email || ''
-    );
-    setEditPhone(
-      employee.phone || ''
-    );
-    setEditDepartment(
-      employee.department || ''
-    );
-    setEditPosition(
-      employee.position || ''
-    );
-    setEditHireDate(
-      employee.hire_date || ''
-    );
-    setEditRoleId(
-      employee.role_id
-        ? String(employee.role_id)
-        : ''
-    );
-    setEditManagerId(
-      employee.manager_id
-        ? String(employee.manager_id)
-        : ''
-    );
-    setEditProfilePhotoUrl(
-      employee.profile_photo_url || ''
-    );
-    setEditStatus(
-      employee.status || 'Active'
-    );
-
-    setShowAddForm(false);
-    setError('');
-    setSuccess('');
   };
 
   // =========================
@@ -909,8 +908,8 @@ export default function Employees({
             </p>
           </div>
 
-          <button
-            type="button"
+         <button
+  type="button"
             onClick={onBack}
             className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 transition font-medium cursor-pointer"
           >
@@ -1084,23 +1083,20 @@ export default function Employees({
 
         <div className="flex justify-end mb-6">
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowAddForm(
-                !showAddForm
-              );
-
-              setEditingEmployee(null);
-              setError('');
-              setSuccess('');
-            }}
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold cursor-pointer"
-          >
-            {showAddForm
-              ? 'Cancel'
-              : '+ Add Employee'}
-          </button>
+         {canAddEmployee && (
+  <button
+    type="button"
+    onClick={() => {
+      setShowAddForm(!showAddForm);
+      setEditingEmployee(null);
+      setError('');
+      setSuccess('');
+    }}
+    className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 transition font-medium cursor-pointer"
+  >
+    {showAddForm ? 'Cancel' : '+ Add Employee'}
+  </button>
+)}
 
         </div>
 
@@ -1494,7 +1490,7 @@ export default function Employees({
         {/* EDIT FORM */}
         {/* ========================= */}
 
-        {editingEmployee && (
+        {canEditEmployee && editingEmployee && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border-l-4 border-blue-600">
 
             <div className="flex flex-col sm:flex-row gap-2 justify-between mb-6">
@@ -1877,6 +1873,160 @@ export default function Employees({
         )}
 
         {/* ========================= */}
+        {/* VIEW EMPLOYEE */}
+        {/* ========================= */}
+
+        {viewingEmployee && (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+            onClick={() => setViewingEmployee(null)}
+          >
+            <div
+              className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Employee Details
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Read-only employee information
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingEmployee(null)}
+                  className="text-gray-500 hover:text-gray-800 text-2xl leading-none cursor-pointer"
+                  aria-label="Close employee details"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 mb-6">
+                {viewingEmployee.profile_photo_url ? (
+                  <Image
+                    src={viewingEmployee.profile_photo_url}
+                    alt={getEmployeeName(viewingEmployee)}
+                    width={64}
+                    height={64}
+                    unoptimized
+                    loader={({ src }) => src}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold">
+                    {getEmployeeName(viewingEmployee)
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    {getEmployeeName(viewingEmployee)}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {viewingEmployee.position || 'Position not assigned'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Employee ID
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.employee_code || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Role
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.role ||
+                      roles.find(
+                        (role) =>
+                          role.id === viewingEmployee.role_id
+                      )?.name ||
+                      'Not assigned'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Department
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.department || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Position
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.position || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Email
+                  </p>
+                  <p className="mt-1 text-gray-800 break-words">
+                    {viewingEmployee.email || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Phone
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.phone || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Hire Date
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.hire_date || '—'}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    Status
+                  </p>
+                  <p className="mt-1 text-gray-800">
+                    {viewingEmployee.status || '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  type="button"
+                  onClick={() => setViewingEmployee(null)}
+                  className="bg-gray-200 text-gray-800 px-5 py-2.5 rounded-lg hover:bg-gray-300 transition font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================= */}
         {/* LOADING */}
         {/* ========================= */}
 
@@ -1959,15 +2109,13 @@ export default function Employees({
                           <div className="flex items-center gap-3">
 
                             {employee.profile_photo_url ? (
-                              <img
-                                src={
-                                  employee.profile_photo_url
-                                }
-                                alt={
-                                  getEmployeeName(
-                                    employee
-                                  )
-                                }
+                              <Image
+                                src={employee.profile_photo_url}
+                                alt={getEmployeeName(employee)}
+                                width={40}
+                                height={40}
+                                unoptimized
+                                loader={({ src }) => src}
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                             ) : (
@@ -2059,20 +2207,45 @@ export default function Employees({
                         {/* ACTIONS */}
 
                         <td className="px-5 py-4">
-
                           <div className="flex gap-2">
 
                             {canEditEmployee && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  startEditing(employee)
-                                }
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold cursor-pointer"
+                                onClick={() => {
+                                  setViewingEmployee(null);
+                                  setEditingEmployee(employee);
+                                  setEditEmployeeCode(employee.employee_code || '');
+                                  setEditFirstName(employee.first_name || '');
+                                  setEditLastName(employee.last_name || '');
+                                  setEditEmail(employee.email || '');
+                                  setEditPhone(employee.phone || '');
+                                  setEditDepartment(employee.department || '');
+                                  setEditPosition(employee.position || '');
+                                  setEditHireDate(employee.hire_date || '');
+                                  setEditRoleId(employee.role_id ? String(employee.role_id) : '');
+                                  setEditManagerId(employee.manager_id ? String(employee.manager_id) : '');
+                                  setEditProfilePhotoUrl(employee.profile_photo_url || '');
+                                  setEditStatus(employee.status || 'Active');
+                                  setShowAddForm(false);
+                                  setError('');
+                                  setSuccess('');
+                                }}
+                                className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
                               >
-                                ✏️ Edit
+                                Edit
                               </button>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingEmployee(employee)
+                              }
+                              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-semibold cursor-pointer"
+                            >
+                              View
+                            </button>
 
                             {canDeleteEmployee && (
                               <button
@@ -2085,13 +2258,6 @@ export default function Employees({
                               >
                                 🗑️ Delete
                               </button>
-                            )}
-
-                            {!canEditEmployee &&
-                              !canDeleteEmployee && (
-                                <span className="text-xs font-medium text-gray-400">
-                                  View only
-                                </span>
                             )}
 
                           </div>
