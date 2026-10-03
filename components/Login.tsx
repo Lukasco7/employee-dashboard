@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  getAppError,
+  logAppError,
+} from '@/lib/errors';
 
 interface LoginProps {
   onLogin: (email: string, role: string) => void;
@@ -127,21 +131,18 @@ const [rolesLoading] = useState(false);
         setShowPassword(false);
         setShowConfirmPassword(false);
         setSelectedRole('Employee');
-      } catch (err) {
-        console.error(
-          'Signup error:',
+            } catch (err) {
+        const appError = getAppError(err);
+
+        logAppError(
+          'Signup error',
           err
         );
 
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to create account.'
-        );
+        setError(appError.message);
       } finally {
         setLoading(false);
       }
-
       return;
     }
 
@@ -272,17 +273,15 @@ const [rolesLoading] = useState(false);
           cleanEmail,
         roleData.name
       );
-    } catch (err) {
-      console.error(
-        'Login error:',
+       } catch (err) {
+      const appError = getAppError(err);
+
+      logAppError(
+        'Login error',
         err
       );
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to log in. Please check your email and password.'
-      );
+      setError(appError.message);
     } finally {
       setLoading(false);
     }

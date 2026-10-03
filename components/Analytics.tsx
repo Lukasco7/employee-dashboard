@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -367,7 +368,7 @@ export default function Analytics({
                 </p>
 
                 <p className="text-3xl font-bold text-purple-600 mt-2">
-                  ${totalRevenue.toFixed(2)}
+                  {formatCurrency(totalRevenue)}
                 </p>
               </div>
 
@@ -397,7 +398,7 @@ export default function Analytics({
                 </p>
 
                 <p className="text-3xl font-bold text-green-600 mt-2">
-                  ${averageSale.toFixed(2)}
+                  {formatCurrency(averageSale)}
                 </p>
               </div>
 
@@ -459,7 +460,7 @@ export default function Analytics({
                             </p>
 
                             <p className="text-sm text-purple-600">
-                              ${item.revenue.toFixed(2)}
+                              {formatCurrency(item.revenue)}
                             </p>
 
                           </div>
@@ -502,7 +503,7 @@ export default function Analytics({
                         </p>
 
                         <p className="font-bold text-purple-600">
-                          ${revenue.toFixed(2)}
+                          {formatCurrency(revenue)}
                         </p>
 
                       </div>
@@ -591,10 +592,7 @@ export default function Analytics({
                               </td>
 
                               <td className="px-4 py-4 text-sm font-semibold text-purple-600">
-                                $
-                                {Number(
-                                  sale.amount || 0
-                                ).toFixed(2)}
+                                {formatCurrency(Number(sale.amount || 0))}
                               </td>
 
                               <td className="px-4 py-4 text-sm text-gray-600">

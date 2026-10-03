@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import {
+  getAppError,
+  logAppError,
+} from '@/lib/errors';
+import { useNotification } from '@/components/NotificationProvider';
 
 import Login from '@/components/Login';
 import Dashboard from '@/components/Dashboard';
@@ -59,11 +64,18 @@ export default function Home() {
   const [isLoading, setIsLoading] =
     useState(true);
 
+  const [restoreAttempt, setRestoreAttempt] =
+    useState(0);
+
+  const { notify } = useNotification();
+
   useEffect(() => {
     let cancelled = false;
 
     const restoreSavedUser = async () => {
       try {
+        setIsLoading(true);
+
         const savedUser =
           localStorage.getItem('user');
 
@@ -71,8 +83,24 @@ export default function Home() {
           return;
         }
 
-        const savedUserData =
-          JSON.parse(savedUser);
+        let savedUserData: {
+          email?: string;
+          role?: string;
+          loggedIn?: boolean;
+        };
+
+        try {
+          savedUserData =
+            JSON.parse(savedUser);
+        } catch (parseError) {
+          logAppError(
+            'Restore saved user - invalid localStorage data',
+            parseError
+          );
+
+          localStorage.removeItem('user');
+          return;
+        }
 
         if (
           !savedUserData?.loggedIn ||
@@ -140,6 +168,13 @@ export default function Home() {
             setCurrentPage('login');
           }
 
+          notify({
+            type: 'error',
+            title: 'Account setup problem',
+            message:
+              'Your account does not have a valid role assigned. Please sign in again.',
+          });
+
           return;
         }
 
@@ -166,6 +201,13 @@ export default function Home() {
             setUserRole('');
             setCurrentPage('login');
           }
+
+          notify({
+            type: 'error',
+            title: 'Account setup problem',
+            message:
+              'Your account role could not be found. Please sign in again.',
+          });
 
           return;
         }
@@ -206,15 +248,106 @@ export default function Home() {
           return;
         }
 
-        console.error(
-          'Unable to restore authenticated user:',
+        const appError =
+          getAppError(error);
+
+        logAppError(
+          'Unable to restore authenticated user',
           error
         );
+        console.log(
+  'RAW RESTORE ERROR:',
+  {
+    type: typeof error,
+    name:
+      error instanceof Error
+        ? error.name
+        : undefined,
+    message:
+      error instanceof Error
+        ? error.message
+        : String(error),
+    stack:
+      error instanceof Error
+        ? error.stack
+        : undefined,
+    properties:
+      error &&
+      typeof error === 'object'
+        ? Object.getOwnPropertyNames(error)
+        : [],
+    value: error,
+  }
+);
 
-        localStorage.removeItem('user');
-        setUserEmail('');
-        setUserRole('');
-        setCurrentPage('login');
+        /*
+         * A temporary network failure does NOT mean
+         * the user's session is invalid.
+         *
+         * Keep localStorage and let the user retry.
+         */
+        if (
+          appError.kind === 'network'
+        ) {
+          notify({
+            type: 'error',
+            title: appError.title,
+            message: appError.message,
+            actionLabel: 'Try again',
+            onAction: () => {
+              setRestoreAttempt(
+                (current) => current + 1
+              );
+            },
+          });
+
+          return;
+        }
+
+        /*
+         * Authentication errors mean the session
+         * cannot be trusted anymore.
+         */
+        if (
+          appError.kind ===
+          'authentication'
+        ) {
+          localStorage.removeItem('user');
+
+          setUserEmail('');
+          setUserRole('');
+          setCurrentPage('login');
+
+          notify({
+            type: 'warning',
+            title: 'Session expired',
+            message:
+              'Your session could not be verified. Please sign in again.',
+          });
+
+          return;
+        }
+
+        /*
+         * Database, authorization, server, and
+         * unknown errors should not automatically
+         * log the user out.
+         */
+        notify({
+          type: 'error',
+          title: appError.title,
+          message: appError.message,
+          actionLabel: appError.retryable
+            ? 'Try again'
+            : undefined,
+          onAction: appError.retryable
+            ? () => {
+                setRestoreAttempt(
+                  (current) => current + 1
+                );
+              }
+            : undefined,
+        });
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -227,7 +360,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [notify, restoreAttempt]);
 
   const handleLogin = (
     email: string,

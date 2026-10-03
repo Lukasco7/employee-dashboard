@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -1032,10 +1033,7 @@ export default function Inventory({
                         </td>
 
                         <td className="px-5 py-4 text-sm text-gray-600">
-                          $
-                          {Number(
-                            product.price
-                          ).toFixed(2)}
+{formatCurrency(product.price)}
                         </td>
 
                         <td className="px-5 py-4 text-sm font-semibold text-gray-800">

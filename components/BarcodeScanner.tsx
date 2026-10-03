@@ -6,6 +6,7 @@ import {
   Html5QrcodeSupportedFormats,
 } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -909,15 +910,6 @@ export default function BarcodeScanner({
     return 'bg-green-100 text-green-800';
   };
 
-  function formatPrice(price: string | number): import("react").ReactNode {
-    const numericPrice =
-      typeof price === 'number' ? price : Number(price);
-
-    return Number.isFinite(numericPrice)
-      ? numericPrice.toFixed(2)
-      : '0.00';
-  }
-
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -1272,10 +1264,7 @@ export default function BarcodeScanner({
                 </p>
 
                 <p className="text-xl font-semibold text-gray-800 mt-1">
-                  $
-                  {formatPrice(
-                    product.price
-                  )}
+{formatCurrency(product.price)}
                 </p>
               </div>
 

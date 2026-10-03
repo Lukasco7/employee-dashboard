@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
 
 interface Customer {
   id: number;
@@ -576,11 +577,6 @@ export default function WishlistFollowUp({
       setSaving(false);
     }
   };
-
-  const formatCurrency = (
-    value: number
-  ) =>
-    `GH₵ ${value.toFixed(2)}`;
 
   const statusClass = (
     value: WishlistItem['status']

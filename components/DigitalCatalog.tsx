@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/currency';
 
 interface Product {
   id: number;
@@ -122,16 +123,6 @@ export default function DigitalCatalog({
       return matchesSearch && matchesCategory && matchesStock;
     });
   }, [products, search, categoryFilter, stockFilter]);
-
-  const formatPrice = (value: number | string) => {
-    const numericValue = Number(
-      String(value).replace('$', '').trim()
-    );
-
-    return Number.isFinite(numericValue)
-      ? numericValue.toFixed(2)
-      : '0.00';
-  };
 
   const getStockStatus = (stock: number) => {
     if (stock <= 0) {
@@ -329,7 +320,7 @@ export default function DigitalCatalog({
                     <div>
                       <p className="text-xs text-gray-500">Price</p>
                       <p className="text-xl font-bold text-purple-600">
-                        ${formatPrice(product.price)}
+                        {formatCurrency(product.price)}
                       </p>
                     </div>
 
@@ -386,7 +377,7 @@ export default function DigitalCatalog({
                 <div>
                   <p className="text-sm text-gray-500">Price</p>
                   <p className="font-semibold text-purple-600 mt-1">
-                    ${formatPrice(selectedProduct.price)}
+                    {formatCurrency(selectedProduct.price)}
                   </p>
                 </div>
 
