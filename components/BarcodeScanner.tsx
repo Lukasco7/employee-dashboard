@@ -268,6 +268,16 @@ export default function BarcodeScanner({
       );
 
       try {
+             const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error(
+            'Your session has expired. Please sign in again.'
+          );
+        }
+
         const response =
           await fetch(
             `/api/barcode-lookup?barcode=${encodeURIComponent(
@@ -276,9 +286,11 @@ export default function BarcodeScanner({
             {
               method: 'GET',
               cache: 'no-store',
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
             }
           );
-
         const externalData =
           await response.json();
 

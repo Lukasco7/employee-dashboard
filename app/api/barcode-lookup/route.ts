@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   const barcode =
@@ -17,7 +18,63 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const authorization =
+    request.headers.get('authorization');
+
+  if (!authorization?.startsWith('Bearer ')) {
+    return NextResponse.json(
+      {
+        error: 'Authentication required.',
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
+  const accessToken =
+    authorization.slice('Bearer '.length).trim();
+
+  if (!accessToken) {
+    return NextResponse.json(
+      {
+        error: 'Authentication required.',
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          error: 'Authentication required.',
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
     const response = await fetch(
       `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(
         barcode
