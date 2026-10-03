@@ -477,11 +477,27 @@ export default function BarcodeScanner({
         cameraId,
         {
           fps: 15,
-          qrbox: {
-            width: 360,
-            height: 220,
+          // Use a wide, responsive scan area for retail barcodes.
+          // A fixed 360x220 box can be too restrictive on some phones
+          // and webcams, especially when the camera preview has a
+          // different aspect ratio. html5-qrcode supports a function
+          // here so the scan area can adapt to the actual viewfinder.
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const width = Math.floor(
+              Math.min(viewfinderWidth * 0.9, 600)
+            );
+            const height = Math.floor(
+              Math.min(
+                Math.max(width * 0.3, 100),
+                viewfinderHeight * 0.45
+              )
+            );
+
+            return {
+              width,
+              height,
+            };
           },
-          aspectRatio: 1.777778,
           disableFlip: false,
         },
         async (decodedText) => {
@@ -1197,105 +1213,126 @@ export default function BarcodeScanner({
         {/* ========================= */}
 
         {product && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 mb-6">
 
-            <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+            <div className="mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                      ✓
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+                      Product Found
+                    </h2>
+                  </div>
 
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">
-                  Product Found
-                </h2>
+                  <p className="text-sm text-gray-500 mt-2 break-all">
+                    Barcode:{' '}
+                    <span className="font-semibold text-gray-800">
+                      {product.barcode}
+                    </span>
+                  </p>
+                </div>
 
-                <p className="text-sm text-gray-500 mt-1">
-                  Barcode:{' '}
-                  <span className="font-semibold text-gray-800">
-                    {product.barcode}
-                  </span>
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {onAddToSale && (
-                  <button
-                    type="button"
-                    onClick={() => onAddToSale(product)}
-                    disabled={product.stock <= 0}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    🛒 Add to POS
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={onProducts}
-                  className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition font-semibold cursor-pointer"
+                <span
+                  className={`self-start inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold ${getStockClass(
+                    product.stock
+                  )}`}
                 >
-                  View Products
-                </button>
+                  {getStockLabel(product.stock)}
+                </span>
               </div>
-
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              <div>
-                <p className="text-sm text-gray-500">
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 sm:p-5 mb-5">
+              <div className="mb-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Product Name
                 </p>
 
-                <p className="text-xl font-semibold text-gray-800 mt-1">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 break-words">
                   {product.name}
                 </p>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-500">
-                  Category
-                </p>
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
 
-                <p className="text-xl font-semibold text-gray-800 mt-1">
-                  {product.category}
-                </p>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Category
+                  </p>
+
+                  <p className="text-base sm:text-lg font-semibold text-gray-800 mt-1 break-words">
+                    {product.category}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Price
+                  </p>
+
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 mt-1">
+                    {formatCurrency(product.price)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Current Stock
+                  </p>
+
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 mt-1">
+                    {product.stock}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Barcode
+                  </p>
+
+                  <p className="text-sm font-semibold text-gray-800 mt-1 break-all">
+                    {product.barcode || 'Not available'}
+                  </p>
+                </div>
+
               </div>
-
-              <div>
-                <p className="text-sm text-gray-500">
-                  Price
-                </p>
-
-                <p className="text-xl font-semibold text-gray-800 mt-1">
-{formatCurrency(product.price)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">
-                  Current Stock
-                </p>
-
-                <p className="text-xl font-semibold text-gray-800 mt-1">
-                  {product.stock}
-                </p>
-              </div>
-
             </div>
 
-            <div className="mt-6">
-              <span
-                className={`inline-block px-4 py-2 rounded-lg font-semibold ${getStockClass(
-                  product.stock
-                )}`}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {onAddToSale && (
+                <button
+                  type="button"
+                  onClick={() => onAddToSale(product)}
+                  disabled={product.stock <= 0}
+                  className="w-full min-h-14 bg-green-600 text-white px-6 py-4 rounded-xl hover:bg-green-700 active:bg-green-800 transition font-bold text-base sm:text-lg shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600"
+                >
+                  {product.stock > 0
+                    ? '🛒 Add to POS'
+                    : 'Out of Stock'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onProducts}
+                className="w-full min-h-14 bg-blue-50 text-blue-700 border border-blue-200 px-6 py-4 rounded-xl hover:bg-blue-100 active:bg-blue-200 transition font-semibold text-base cursor-pointer"
               >
-                {getStockLabel(
-                  product.stock
-                )}
-              </span>
+                📦 View Products
+              </button>
             </div>
+
+            {product.stock > 0 && (
+              <p className="text-center text-sm text-gray-500 mt-3">
+                Tap <span className="font-semibold text-gray-700">Add to POS</span> to put this product into the sale.
+              </p>
+            )}
 
           </div>
         )}
 
-        {/* ========================= */}
         {/* UNKNOWN BARCODE */}
         {/* ========================= */}
 
