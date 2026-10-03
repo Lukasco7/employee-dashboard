@@ -465,7 +465,6 @@ export default function BarcodeScanner({
               Html5QrcodeSupportedFormats.CODE_93,
               Html5QrcodeSupportedFormats.CODABAR,
               Html5QrcodeSupportedFormats.ITF,
-              Html5QrcodeSupportedFormats.QR_CODE,
             ],
           }
         );
