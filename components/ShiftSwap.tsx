@@ -150,7 +150,7 @@ export default function ShiftSwap({
           data,
           error: employeeError,
         } = await supabase
-          .from('employees')
+          .from('employee_directory')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
